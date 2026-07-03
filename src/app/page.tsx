@@ -73,6 +73,7 @@ const PRICING = [
     period: "pour toujours",
     features: ["Radar IA temps réel", "3 scripts / jour", "Aperçu Reel vertical", "Export .txt"],
     cta: "Commencer gratuitement",
+    href: "/register",
     highlight: false,
   },
   {
@@ -87,6 +88,7 @@ const PRICING = [
       "Partage direct X / TikTok / YouTube",
     ],
     cta: "Devenir viral",
+    href: "/billing",
     highlight: true,
   },
   {
@@ -101,6 +103,7 @@ const PRICING = [
       "Support prioritaire",
     ],
     cta: "Passer en mode Studio",
+    href: "/billing",
     highlight: false,
   },
 ];
@@ -280,7 +283,7 @@ export default function LandingPage() {
                 ))}
               </ul>
               <Link
-                href="/register"
+                href={p.href}
                 className={`mt-7 block rounded-xl py-3 text-center font-semibold transition-transform hover:scale-[1.02] ${
                   p.highlight ? "btn-neon" : "glass neon-border"
                 }`}

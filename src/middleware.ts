@@ -8,6 +8,7 @@ const PROTECTED = [
   "/architect",
   "/avatar",
   "/thumbnails",
+  "/billing",
   "/admin",
 ];
 
@@ -41,6 +42,7 @@ export const config = {
     "/architect/:path*",
     "/avatar/:path*",
     "/thumbnails/:path*",
+    "/billing/:path*",
     "/admin/:path*",
   ],
 };
