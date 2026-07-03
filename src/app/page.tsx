@@ -112,7 +112,37 @@ export default function LandingPage() {
       <Navbar />
 
       {/* ---- HERO ---- */}
-      <section className="relative mx-auto max-w-7xl px-5 pt-20 pb-24 text-center md:pt-28">
+      <section className="relative mx-auto max-w-7xl px-5 pt-16 pb-24 text-center md:pt-20">
+        {/* Rendu 3D de la marque en médaillon flottant */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="mb-8 flex justify-center"
+        >
+          <div className="relative animate-float-slow">
+            <div
+              className="absolute inset-0 -z-10 rounded-full blur-3xl"
+              style={{ background: "radial-gradient(circle, rgba(167,139,250,.55), transparent 70%)" }}
+            />
+            <div
+              className="absolute -inset-2 rounded-full opacity-70 animate-spin-slow"
+              style={{
+                background: "conic-gradient(from 0deg, #22d3ee, #a78bfa, #e879f9, #22d3ee)",
+                filter: "blur(7px)",
+              }}
+            />
+            <div className="relative h-40 w-40 overflow-hidden rounded-full border border-white/10 shadow-[0_0_70px_-10px_rgba(139,92,246,.85)] md:h-56 md:w-56">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo-3d.png"
+                alt="Emblème 3D ViralRepo.AI"
+                className="h-full w-full scale-[1.12] object-cover"
+              />
+            </div>
+          </div>
+        </motion.div>
+
         <motion.div {...fadeUp} className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 text-xs font-medium animate-pulse-glow">
           <Flame size={13} className="text-orange-400" />
           <span className="neon-text font-semibold">NOUVEAU</span>
