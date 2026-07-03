@@ -24,6 +24,8 @@ type Scene = {
   visuel: string;
   imageUrl: string | null;
   imgStatus: "idle" | "loading" | "done" | "demo";
+  videoUrl: string | null;
+  vidStatus: "idle" | "processing" | "done" | "demo" | "error";
 };
 
 const STEPS = [
@@ -94,6 +96,8 @@ export default function ProductionPage() {
   const [ttsVoice, setTtsVoice] = useState("charlotte");
   const [voiceGen, setVoiceGen] = useState(false);
   const [voiceNote, setVoiceNote] = useState("");
+  const [batchVideo, setBatchVideo] = useState(false);
+  const [videoMsg, setVideoMsg] = useState("");
   const recorderRef = useRef<MediaRecorder | null>(null);
 
   // Étape 3
@@ -146,6 +150,8 @@ export default function ProductionPage() {
             ...s,
             imageUrl: null,
             imgStatus: "idle" as const,
+            videoUrl: null,
+            vidStatus: "idle" as const,
           }))
         );
       }
@@ -192,6 +198,74 @@ export default function ProductionPage() {
       if (!scenes[i].imageUrl) await generateImage(i);
     }
     setBatchRunning(false);
+  };
+
+  // ---- Vidéo IA : anime l'image d'une scène (Runway), polling piloté client ----
+  const setVid = (index: number, patch: Partial<Scene>) =>
+    setScenes((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
+
+  // Renvoie l'issue explicite pour piloter la boucle et le message (évite de
+  // lire l'état périmé après un setState asynchrone).
+  const generateVideo = async (
+    index: number
+  ): Promise<"done" | "demo" | "error"> => {
+    const scene = scenes[index];
+    if (!scene?.imageUrl) return "error";
+    setVid(index, { vidStatus: "processing" });
+    try {
+      const res = await fetch("/api/video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: scene.imageUrl, prompt: scene.visuel, vertical }),
+      });
+      const data = await res.json();
+      if (data.demo) {
+        setVid(index, { vidStatus: "demo" });
+        return "demo";
+      }
+      if (!data.taskId) {
+        setVid(index, { vidStatus: "error" });
+        return "error";
+      }
+      // Polling jusqu'à obtention du clip (Runway : ~1-2 min par plan)
+      for (let tries = 0; tries < 60; tries++) {
+        await new Promise((r) => setTimeout(r, 6000));
+        const st = await fetch(`/api/video/${data.taskId}`).then((r) => r.json());
+        if (st.status === "done" && st.videoUrl) {
+          setVid(index, { vidStatus: "done", videoUrl: st.videoUrl });
+          return "done";
+        }
+        if (st.status === "error") {
+          setVid(index, { vidStatus: "error" });
+          return "error";
+        }
+      }
+      setVid(index, { vidStatus: "error" });
+      return "error";
+    } catch {
+      setVid(index, { vidStatus: "error" });
+      return "error";
+    }
+  };
+
+  const generateAllVideos = async () => {
+    setBatchVideo(true);
+    setVideoMsg("");
+    for (let i = 0; i < scenes.length; i++) {
+      if (scenes[i].imageUrl && !scenes[i].videoUrl) {
+        const outcome = await generateVideo(i);
+        // Sans clé Runway : inutile de continuer, on informe et on s'arrête.
+        if (outcome === "demo") {
+          setBatchVideo(false);
+          setVideoMsg(
+            "Mode démo : ajoutez RUNWAY_API_KEY dans .env pour animer réellement les scènes. Le montage garde l'effet Ken Burns."
+          );
+          return;
+        }
+      }
+    }
+    setBatchVideo(false);
+    setVideoMsg("Plans vidéo IA générés — ils remplaceront les images fixes dans le montage.");
   };
 
   // Voix off IA (ElevenLabs) pour l'ensemble du script → muxée dans le montage.
@@ -276,7 +350,11 @@ export default function ProductionPage() {
     setExportPct(0);
     try {
       const { blob, ext } = await exportMontage({
-        scenes: scenes.map((s) => ({ caption: s.audio, imageUrl: s.imageUrl })),
+        scenes: scenes.map((s) => ({
+          caption: s.audio,
+          imageUrl: s.imageUrl,
+          videoUrl: s.videoUrl,
+        })),
         vertical,
         audioBlob,
         onProgress: (pct, label) => {
@@ -326,6 +404,7 @@ export default function ProductionPage() {
         .map((s, i) => ({
           caption: i === 0 ? hook.hook : s.audio,
           imageUrl: s.imageUrl,
+          videoUrl: s.videoUrl,
         }));
       if (subset.length === 0) return;
       const { blob, ext } = await exportMontage({
@@ -585,6 +664,61 @@ export default function ProductionPage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Plans vidéo IA (optionnel) */}
+            <div className="glass neon-border rounded-2xl p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="flex items-center gap-2 font-display font-semibold">
+                    <Film size={16} className="text-neon-cyan" /> Plans vidéo IA (optionnel)
+                  </h2>
+                  <p className="mt-1 text-xs text-muted">
+                    Anime chaque image en vrai plan vidéo (Runway Gen-3) au lieu de
+                    l'effet Ken Burns. Fonction premium — le rendu prend ~1-2 min par
+                    scène. Sans clé : le montage garde les images animées.
+                  </p>
+                </div>
+                <button
+                  onClick={generateAllVideos}
+                  disabled={batchVideo || !assetsReady}
+                  className="btn-neon flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
+                >
+                  {batchVideo ? <Loader2 size={15} className="animate-spin" /> : <Film size={15} />}
+                  {batchVideo ? "Animation en cours…" : "Animer toutes les scènes"}
+                </button>
+              </div>
+
+              {scenes.some((s) => s.vidStatus !== "idle") && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {scenes.map((s, i) => (
+                    <span
+                      key={i}
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold ${
+                        s.vidStatus === "done"
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : s.vidStatus === "processing"
+                            ? "bg-cyan-500/15 text-cyan-400"
+                            : s.vidStatus === "error"
+                              ? "bg-red-500/15 text-red-400"
+                              : "glass text-muted"
+                      }`}
+                    >
+                      S{i + 1}{" "}
+                      {s.vidStatus === "done"
+                        ? "✓"
+                        : s.vidStatus === "processing"
+                          ? "…"
+                          : s.vidStatus === "error"
+                            ? "✕"
+                            : s.vidStatus === "demo"
+                              ? "démo"
+                              : ""}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {videoMsg && <p className="mt-2 text-xs text-muted">{videoMsg}</p>}
             </div>
 
             {/* Voix off */}

@@ -145,6 +145,20 @@ async function resendCheck(): Promise<Check> {
   return check;
 }
 
+function runwayCheck(): Check {
+  const key = process.env.RUNWAY_API_KEY;
+  return {
+    id: "runway",
+    label: "Vidéo IA (Runway)",
+    role: "Anime les images des scènes en plans vidéo",
+    configured: !!key,
+    status: key ? "live" : "demo",
+    detail: key
+      ? "Clé présente. Animation vidéo IA activée (facturée à l'usage)."
+      : "Sans clé : effet Ken Burns (démo).",
+  };
+}
+
 async function elevenCheck(): Promise<Check> {
   const key = process.env.ELEVENLABS_API_KEY;
   const check: Check = {
@@ -284,6 +298,7 @@ export async function GET() {
     ),
     resend,
     eleven,
+    runwayCheck(),
     did,
     secretCheck(),
   ];

@@ -9,6 +9,7 @@ import { transcodeToMp4 } from "./exportVideo";
 export type MontageScene = {
   caption: string;
   imageUrl?: string | null; // dataURL de l'image IA (ou null → fond procédural)
+  videoUrl?: string | null; // clip vidéo IA (Runway) — prioritaire sur l'image
 };
 
 export type MontageOptions = {
@@ -26,9 +27,26 @@ export function sceneDuration(caption: string): number {
 async function loadImage(url: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
     img.src = url;
+  });
+}
+
+// Charge un clip vidéo (Runway) prêt à être dessiné sur le canvas.
+// crossOrigin="anonymous" pour éviter de « tainter » le canvas à l'export.
+async function loadVideo(url: string): Promise<HTMLVideoElement | null> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    v.crossOrigin = "anonymous";
+    v.muted = true;
+    v.playsInline = true;
+    v.loop = true;
+    v.preload = "auto";
+    v.onloadeddata = () => resolve(v);
+    v.onerror = () => resolve(null);
+    v.src = url;
   });
 }
 
@@ -91,13 +109,17 @@ export async function exportMontage(
 
   onProgress?.(2, "Préparation des visuels…");
 
-  // Précharge les visuels (image IA ou fond procédural)
+  // Précharge les visuels (clip vidéo IA prioritaire, sinon image, sinon fond)
   const visuals: (HTMLImageElement | HTMLCanvasElement)[] = [];
+  const videos: (HTMLVideoElement | null)[] = [];
   for (let i = 0; i < scenes.length; i++) {
+    const vid = scenes[i].videoUrl ? await loadVideo(scenes[i].videoUrl!) : null;
+    videos.push(vid);
     const url = scenes[i].imageUrl;
     const img = url ? await loadImage(url) : null;
     visuals.push(img ?? proceduralScene(i, W, H));
   }
+  let activeVideo = -1; // scène dont le clip est en lecture
 
   const durations = scenes.map((s) => sceneDuration(s.caption));
   const total = durations.reduce((a, b) => a + b, 0) + 0.6;
@@ -148,19 +170,39 @@ export async function exportMontage(
       idx = i;
     }
     const local = Math.min(1, (t - acc) / durations[idx]); // 0→1 dans la scène
-    const visual = visuals[idx];
+    const clip = videos[idx];
 
-    // Ken Burns : zoom lent 1.0 → 1.09, léger pan alterné
-    const zoom = 1 + local * 0.09;
-    const panX = (idx % 2 === 0 ? 1 : -1) * local * 0.03 * W;
-    const vw = (visual as HTMLImageElement).width || W;
-    const vh = (visual as HTMLImageElement).height || H;
-    const scale = Math.max(W / vw, H / vh) * zoom;
-    const dw = vw * scale;
-    const dh = vh * scale;
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, W, H);
-    ctx.drawImage(visual, (W - dw) / 2 + panX, (H - dh) / 2, dw, dh);
+
+    if (clip) {
+      // Plan vidéo IA : on lit le clip (pas de Ken Burns, le mouvement vient du clip)
+      if (activeVideo !== idx) {
+        videos.forEach((v, k) => {
+          if (v && k !== idx) v.pause();
+        });
+        clip.currentTime = 0;
+        clip.play().catch(() => {});
+        activeVideo = idx;
+      }
+      const vw = clip.videoWidth || W;
+      const vh = clip.videoHeight || H;
+      const scale = Math.max(W / vw, H / vh);
+      const dw = vw * scale;
+      const dh = vh * scale;
+      ctx.drawImage(clip, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    } else {
+      // Image fixe animée par effet Ken Burns : zoom lent + léger pan alterné
+      const visual = visuals[idx];
+      const zoom = 1 + local * 0.09;
+      const panX = (idx % 2 === 0 ? 1 : -1) * local * 0.03 * W;
+      const vw = (visual as HTMLImageElement).width || W;
+      const vh = (visual as HTMLImageElement).height || H;
+      const scale = Math.max(W / vw, H / vh) * zoom;
+      const dw = vw * scale;
+      const dh = vh * scale;
+      ctx.drawImage(visual, (W - dw) / 2 + panX, (H - dh) / 2, dw, dh);
+    }
 
     // fondu enchaîné en début de scène
     if (local < 0.12) {
