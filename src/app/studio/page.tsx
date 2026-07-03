@@ -8,7 +8,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Sparkles, Download, Share2, Clapperboard, Mic, Square, Upload,
-  UserSquare2, Save, Check, Loader2, FileText, Youtube, Twitter, Music2,
+  UserSquare2, Save, Check, Loader2, FileText, Youtube, Twitter, Music2, Volume2,
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { FuturisticBackground } from "@/components/FuturisticBackground";
@@ -39,6 +39,11 @@ export default function StudioPage() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
+
+  // Voix off IA (ElevenLabs)
+  const [ttsVoice, setTtsVoice] = useState("charlotte");
+  const [voiceGen, setVoiceGen] = useState(false);
+  const [voiceNote, setVoiceNote] = useState("");
 
   // Export vidéo
   const [exporting, setExporting] = useState(false);
@@ -111,6 +116,40 @@ export default function StudioPage() {
     if (!f) return;
     setAudioBlob(f);
     setAudioUrl(URL.createObjectURL(f));
+  };
+
+  // Génère la voix off IA (ElevenLabs) à partir du script, prête à muxer.
+  const generateAIVoice = async () => {
+    if (lines.length === 0) return;
+    setVoiceGen(true);
+    setVoiceNote("");
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: lines.join(". "), voice: ttsVoice }),
+      });
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("audio")) {
+        const blob = await res.blob();
+        setAudioBlob(blob);
+        setAudioUrl(URL.createObjectURL(blob));
+        setVoiceNote("✨ Voix off IA générée — incluse dans l'export MP4.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        if (data.demo) {
+          setVoiceNote(
+            "Mode démo : ajoutez ELEVENLABS_API_KEY dans .env pour la vraie voix IA. En attendant, la voix du navigateur joue dans l'aperçu."
+          );
+        } else {
+          setVoiceNote(data.error || "Échec de la génération vocale.");
+        }
+      }
+    } catch {
+      setVoiceNote("Erreur réseau — réessayez.");
+    } finally {
+      setVoiceGen(false);
+    }
   };
 
   const toggleRecord = async () => {
@@ -318,11 +357,33 @@ export default function StudioPage() {
             <div className="glass neon-border rounded-2xl p-5">
               <h2 className="font-display font-semibold">3. Voix off (optionnel)</h2>
               <p className="mt-1 text-xs text-muted">
-                La voix off TTS joue automatiquement dans l'aperçu. Pour inclure une
-                voix dans le MP4 exporté, enregistrez la vôtre ou importez un fichier
-                audio — elle sera synchronisée avec les légendes.
+                Générez une voix off IA ultra-réaliste (ElevenLabs), ou enregistrez /
+                importez la vôtre — elle sera muxée dans le MP4 exporté.
               </p>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
+
+              {/* Voix off IA ElevenLabs */}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <select
+                  value={ttsVoice}
+                  onChange={(e) => setTtsVoice(e.target.value)}
+                  className="rounded-xl glass px-3 py-2.5 text-sm outline-none"
+                >
+                  <option value="charlotte">Charlotte (F)</option>
+                  <option value="antoni">Antoni (H)</option>
+                  <option value="rachel">Rachel (F)</option>
+                </select>
+                <button
+                  onClick={generateAIVoice}
+                  disabled={voiceGen || lines.length === 0}
+                  className="btn-neon flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+                >
+                  {voiceGen ? <Loader2 size={15} className="animate-spin" /> : <Volume2 size={15} />}
+                  {voiceGen ? "Génération de la voix…" : "Générer la voix off IA"}
+                </button>
+              </div>
+              {voiceNote && <p className="mt-2 text-xs text-muted">{voiceNote}</p>}
+
+              <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button
                   onClick={toggleRecord}
                   className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${

@@ -91,6 +91,9 @@ export default function ProductionPage() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
+  const [ttsVoice, setTtsVoice] = useState("charlotte");
+  const [voiceGen, setVoiceGen] = useState(false);
+  const [voiceNote, setVoiceNote] = useState("");
   const recorderRef = useRef<MediaRecorder | null>(null);
 
   // Étape 3
@@ -189,6 +192,41 @@ export default function ProductionPage() {
       if (!scenes[i].imageUrl) await generateImage(i);
     }
     setBatchRunning(false);
+  };
+
+  // Voix off IA (ElevenLabs) pour l'ensemble du script → muxée dans le montage.
+  const generateAIVoice = async () => {
+    if (scenes.length === 0) return;
+    setVoiceGen(true);
+    setVoiceNote("");
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: scenes.map((s) => s.audio).join(". "),
+          voice: ttsVoice,
+        }),
+      });
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("audio")) {
+        const blob = await res.blob();
+        setAudioBlob(blob);
+        setAudioUrl(URL.createObjectURL(blob));
+        setVoiceNote("✨ Voix off IA générée — elle sera muxée dans la vidéo.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setVoiceNote(
+          data.demo
+            ? "Mode démo : ajoutez ELEVENLABS_API_KEY dans .env pour la vraie voix IA."
+            : data.error || "Échec de la génération vocale."
+        );
+      }
+    } catch {
+      setVoiceNote("Erreur réseau — réessayez.");
+    } finally {
+      setVoiceGen(false);
+    }
   };
 
   const speakScene = (text: string) => {
@@ -553,10 +591,33 @@ export default function ProductionPage() {
             <div className="glass neon-border rounded-2xl p-5">
               <h2 className="font-display font-semibold">🎙️ Voix off (optionnel)</h2>
               <p className="mt-1 text-xs text-muted">
-                Enregistrez-vous en lisant la colonne AUDIO (bouton 🔊 de chaque scène
-                pour entendre le rythme TTS), ou importez un fichier — la piste sera
-                muxée dans la vidéo finale.
+                Générez une voix off IA ultra-réaliste (ElevenLabs) pour tout le
+                script, ou enregistrez / importez la vôtre — la piste sera muxée
+                dans la vidéo finale.
               </p>
+
+              {/* Voix off IA ElevenLabs */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <select
+                  value={ttsVoice}
+                  onChange={(e) => setTtsVoice(e.target.value)}
+                  className="rounded-xl glass px-3 py-2.5 text-sm outline-none"
+                >
+                  <option value="charlotte">Charlotte (F)</option>
+                  <option value="antoni">Antoni (H)</option>
+                  <option value="rachel">Rachel (F)</option>
+                </select>
+                <button
+                  onClick={generateAIVoice}
+                  disabled={voiceGen || scenes.length === 0}
+                  className="btn-neon flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+                >
+                  {voiceGen ? <Loader2 size={15} className="animate-spin" /> : <Volume2 size={15} />}
+                  {voiceGen ? "Génération de la voix…" : "Générer la voix off IA"}
+                </button>
+              </div>
+              {voiceNote && <p className="mt-2 text-xs text-muted">{voiceNote}</p>}
+
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button
                   onClick={toggleRecord}

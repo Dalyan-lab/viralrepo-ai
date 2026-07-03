@@ -145,6 +145,43 @@ async function resendCheck(): Promise<Check> {
   return check;
 }
 
+async function elevenCheck(): Promise<Check> {
+  const key = process.env.ELEVENLABS_API_KEY;
+  const check: Check = {
+    id: "elevenlabs",
+    label: "Voix off IA (ElevenLabs)",
+    role: "Voix off ultra-réaliste dans les vidéos",
+    configured: !!key,
+    status: key ? "warn" : "demo",
+    detail: key ? "Test en cours…" : "Sans clé : voix du navigateur (démo).",
+  };
+  if (!key) return check;
+  try {
+    const res = await timedFetch(
+      "https://api.elevenlabs.io/v1/user/subscription",
+      { headers: { "xi-api-key": key } },
+      8_000
+    );
+    if (res.ok) {
+      const j = await res.json().catch(() => ({}));
+      check.status = "live";
+      const used = j.character_count;
+      const lim = j.character_limit;
+      check.detail =
+        used != null && lim != null
+          ? `Connecté. Crédits : ${lim - used}/${lim} caractères restants.`
+          : "Connecté. Voix IA active.";
+    } else {
+      check.status = "error";
+      check.detail = `Clé refusée (HTTP ${res.status}).`;
+    }
+  } catch {
+    check.status = "error";
+    check.detail = "API ElevenLabs injoignable.";
+  }
+  return check;
+}
+
 async function didCheck(): Promise<Check> {
   const key = process.env.DID_API_KEY;
   const check: Check = {
@@ -222,10 +259,11 @@ export async function GET() {
   }
 
   // Tous les tests réseau en parallèle → temps total = le plus lent, pas la somme.
-  const [gemini, github, resend, did] = await Promise.all([
+  const [gemini, github, resend, eleven, did] = await Promise.all([
     geminiCheck(),
     githubCheck(),
     resendCheck(),
+    elevenCheck(),
     didCheck(),
   ]);
 
@@ -245,6 +283,7 @@ export async function GET() {
       process.env.GITHUB_CLIENT_SECRET
     ),
     resend,
+    eleven,
     did,
     secretCheck(),
   ];
