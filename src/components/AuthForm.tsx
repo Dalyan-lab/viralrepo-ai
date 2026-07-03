@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Rocket, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { FuturisticBackground } from "./FuturisticBackground";
+import { Logo } from "./Logo";
 
 function GoogleIcon() {
   return (
@@ -79,9 +80,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         className="glass neon-border w-full max-w-md rounded-3xl p-8"
       >
         <Link href="/" className="mb-8 flex items-center justify-center gap-2 font-display text-xl font-bold">
-          <span className="grid h-10 w-10 place-items-center rounded-xl btn-neon">
-            <Rocket size={19} />
-          </span>
+          <Logo className="h-10 w-10" />
           ViralRepo<span className="neon-text">.AI</span>
         </Link>
 

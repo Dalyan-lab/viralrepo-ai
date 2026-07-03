@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Rocket, Sun, Moon, LogOut, Menu, X } from "lucide-react";
+import { Sun, Moon, LogOut, Menu, X } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
+import { Logo } from "./Logo";
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Radar IA" },
@@ -39,9 +40,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 glass">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3">
         <Link href="/" className="flex items-center gap-2 font-display text-lg font-bold">
-          <span className="grid h-9 w-9 place-items-center rounded-xl btn-neon">
-            <Rocket size={18} />
-          </span>
+          <Logo className="h-9 w-9" />
           <span>
             ViralRepo<span className="neon-text">.AI</span>
           </span>
