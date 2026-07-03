@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+*.log
+.env
+prisma/*.db
+prisma/*.db-journal
+.DS_Store
+~$*
+
+public/ffmpeg/ffmpeg-core.wasm
+
+# Cache TypeScript
+tsconfig.tsbuildinfo

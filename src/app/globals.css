@@ -1,0 +1,137 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f4f6fb;
+  --bg-panel: rgba(255, 255, 255, 0.72);
+  --fg: #0b0d1d;
+  --fg-muted: #4b5170;
+  --border: rgba(11, 13, 29, 0.1);
+  --glow-1: rgba(34, 211, 238, 0.25);
+  --glow-2: rgba(167, 139, 250, 0.25);
+}
+
+.dark {
+  --bg: #05060f;
+  --bg-panel: rgba(13, 16, 34, 0.62);
+  --fg: #eef1ff;
+  --fg-muted: #9aa3c7;
+  --border: rgba(148, 163, 233, 0.14);
+  --glow-1: rgba(34, 211, 238, 0.35);
+  --glow-2: rgba(167, 139, 250, 0.35);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Inter", system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+}
+
+/* ---- Utilitaires futuristes ---- */
+.glass {
+  background: var(--bg-panel);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid var(--border);
+}
+
+.text-muted {
+  color: var(--fg-muted);
+}
+
+.neon-text {
+  background: linear-gradient(92deg, #22d3ee 0%, #a78bfa 50%, #e879f9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.neon-border {
+  position: relative;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--bg-panel), var(--bg-panel)) padding-box,
+    linear-gradient(120deg, rgba(34,211,238,.6), rgba(167,139,250,.6), rgba(232,121,249,.6)) border-box;
+}
+
+.btn-neon {
+  background: linear-gradient(92deg, #06b6d4, #8b5cf6, #d946ef);
+  background-size: 200% 100%;
+  transition: background-position .4s ease, transform .15s ease, box-shadow .3s ease;
+  color: white;
+}
+.btn-neon:hover {
+  background-position: 100% 0;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px -8px rgba(139, 92, 246, 0.7);
+}
+.btn-neon:active { transform: translateY(0); }
+
+.grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(120, 130, 220, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(120, 130, 220, 0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.shimmer-text {
+  background: linear-gradient(90deg, var(--fg) 40%, #22d3ee 50%, var(--fg) 60%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 3s linear infinite;
+}
+
+/* Bande déroulante (ticker) des repos en explosion */
+.marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 6%, black 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 6%, black 94%, transparent);
+}
+.marquee-track {
+  display: inline-flex;
+  gap: 2.5rem;
+  white-space: nowrap;
+  animation: marqueeScroll 40s linear infinite;
+  will-change: transform;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+@keyframes marqueeScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Caret de streaming */
+.stream-caret::after {
+  content: "▍";
+  color: #22d3ee;
+  animation: blink 0.9s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Scrollbar discrète */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 148, 200, 0.32);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(139, 148, 200, 0.55); }
+
+/* Sélection */
+::selection { background: rgba(139, 92, 246, 0.4); }
