@@ -1,7 +1,4 @@
 import { prisma } from "./db";
-import { getStripe } from "./stripe";
-
-const REWARD_AMOUNT = 1900; // 19€ de crédit ≈ 1 mois Créateur offert
 
 // Code de parrainage court et lisible (ex : "techno8471"), inspiré du modèle
 // fourni. Unicité garantie par la contrainte @unique + quelques essais.
@@ -63,8 +60,8 @@ export async function linkReferral(refereeId: string, code?: string | null) {
   }
 }
 
-/** Le filleul vient de s'abonner : convertit le parrainage et récompense le
- *  parrain (crédit Stripe s'il est client, sinon mois offert au prochain abonnement).
+/** Le filleul vient de s'abonner : convertit le parrainage et offre au parrain
+ *  1 mois d'accès premium (extension immédiate de sa date d'expiration).
  *  Idempotent : ne récompense qu'une fois par parrainage. */
 export async function grantReferralReward(refereeId: string) {
   const referral = await prisma.referral.findUnique({ where: { refereeId } });
@@ -77,32 +74,25 @@ export async function grantReferralReward(refereeId: string) {
 
   const referrer = await prisma.user.findUnique({
     where: { id: referral.referrerId },
-    select: { id: true, stripeCustomerId: true, referralRewards: true },
+    select: { id: true, plan: true, planExpiresAt: true },
   });
   if (!referrer) return;
 
-  const stripe = getStripe();
-  if (stripe && referrer.stripeCustomerId) {
-    // Parrain déjà client : crédit appliqué à sa prochaine facture.
-    try {
-      await stripe.customers.createBalanceTransaction(referrer.stripeCustomerId, {
-        amount: -REWARD_AMOUNT,
-        currency: "eur",
-        description: "Récompense parrainage ViralRepo.AI",
-      });
-      await prisma.user.update({
-        where: { id: referrer.id },
-        data: { referralRewards: { increment: 1 } },
-      });
-      return;
-    } catch {
-      // repli sur le mois offert au prochain abonnement
-    }
-  }
+  // 1 mois offert : on prolonge de 30 jours à partir de l'expiration actuelle
+  // (ou de maintenant si expiré / jamais abonné), et on active au moins Créateur.
+  const base =
+    referrer.planExpiresAt && referrer.planExpiresAt > new Date()
+      ? referrer.planExpiresAt
+      : new Date();
+  const newExpiry = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-  // Parrain non-client : mois offert appliqué à son prochain abonnement.
   await prisma.user.update({
     where: { id: referrer.id },
-    data: { referralRewards: { increment: 1 }, pendingReferralReward: true },
+    data: {
+      referralRewards: { increment: 1 },
+      plan: referrer.plan === "decouverte" ? "createur" : referrer.plan,
+      planExpiresAt: newExpiry,
+      subscriptionStatus: "active",
+    },
   });
 }

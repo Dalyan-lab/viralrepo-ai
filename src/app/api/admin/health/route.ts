@@ -145,19 +145,17 @@ async function resendCheck(): Promise<Check> {
   return check;
 }
 
-function stripeCheck(): Check {
-  const key = process.env.STRIPE_SECRET_KEY;
-  const hook = process.env.STRIPE_WEBHOOK_SECRET;
+function paystackCheck(): Check {
+  const key = process.env.PAYSTACK_SECRET_KEY;
+  const live = key?.startsWith("sk_live");
   return {
-    id: "stripe",
-    label: "Paiements (Stripe)",
-    role: "Abonnements Créateur / Studio",
+    id: "paystack",
+    label: "Paiements (Paystack)",
+    role: "Abonnements — cartes + Mobile Money (CI)",
     configured: !!key,
-    status: key ? (hook ? "live" : "warn") : "demo",
+    status: key ? "live" : "demo",
     detail: key
-      ? hook
-        ? "Clé + webhook présents. Facturation active."
-        : "Clé présente, mais STRIPE_WEBHOOK_SECRET manquant (abonnement confirmé au retour du paiement)."
+      ? `Clé ${live ? "LIVE (réelle)" : "TEST"} présente. Paiements actifs (carte + mobile money).`
       : "Sans clé : plans affichés en mode démo.",
   };
 }
@@ -316,7 +314,7 @@ export async function GET() {
     resend,
     eleven,
     runwayCheck(),
-    stripeCheck(),
+    paystackCheck(),
     did,
     secretCheck(),
   ];

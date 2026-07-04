@@ -1,28 +1,27 @@
 "use client";
 
-// Page de facturation : plan courant, gestion de l'abonnement (portail Stripe),
-// et gestion des retours de Checkout (succès / annulation).
+// Page de facturation (Paystack) : plan courant, offres en FCFA, paiement par
+// carte ou Mobile Money, et gestion du retour de paiement.
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { CreditCard, Check, Loader2, Sparkles, Settings, X } from "lucide-react";
+import { CreditCard, Check, Loader2, Sparkles, X, Smartphone } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { FuturisticBackground } from "@/components/FuturisticBackground";
 
 const PLAN_UI: Record<string, { label: string; color: string }> = {
   decouverte: { label: "Découverte (gratuit)", color: "glass" },
-  createur: { label: "Créateur — 19€/mois", color: "btn-neon" },
-  studio: { label: "Studio — 49€/mois", color: "btn-neon" },
+  createur: { label: "Créateur", color: "btn-neon" },
+  studio: { label: "Studio", color: "btn-neon" },
 };
 
 function BillingInner() {
   const params = useSearchParams();
   const [plan, setPlan] = useState<string>("decouverte");
-  const [status, setStatus] = useState<string | null>(null);
-  const [hasCustomer, setHasCustomer] = useState(false);
-  const [stripeOn, setStripeOn] = useState(true);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [paystackOn, setPaystackOn] = useState(true);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<{ kind: "ok" | "info" | "err"; msg: string } | null>(null);
@@ -30,29 +29,29 @@ function BillingInner() {
   const load = async () => {
     const d = await fetch("/api/billing/status").then((r) => r.json());
     setPlan(d.plan);
-    setStatus(d.status);
-    setHasCustomer(d.hasCustomer);
-    setStripeOn(d.stripeConfigured);
+    setExpiresAt(d.expiresAt);
+    setPaystackOn(d.paystackConfigured);
     setLoading(false);
   };
 
   useEffect(() => {
-    // Retour de Checkout : confirme l'activation (filet sans webhook)
-    const sid = params.get("session_id");
+    const reference = params.get("reference") || params.get("trxref");
     const canceled = params.get("canceled");
     (async () => {
-      if (sid) {
-        setBanner({ kind: "info", msg: "Confirmation du paiement…" });
-        const r = await fetch("/api/stripe/confirm", {
+      if (reference) {
+        setBanner({ kind: "info", msg: "Vérification du paiement…" });
+        const r = await fetch("/api/paystack/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: sid }),
+          body: JSON.stringify({ reference }),
         }).then((r) => r.json());
         setBanner(
           r.ok
-            ? { kind: "ok", msg: "🎉 Abonnement activé ! Bienvenue dans le plan premium." }
+            ? { kind: "ok", msg: "🎉 Paiement confirmé ! Votre accès premium est actif." }
             : { kind: "info", msg: "Paiement en cours de traitement…" }
         );
+        // Nettoie l'URL pour éviter une re-vérification au rafraîchissement.
+        window.history.replaceState({}, "", "/billing");
       } else if (canceled) {
         setBanner({ kind: "info", msg: "Paiement annulé — aucun montant prélevé." });
       }
@@ -60,10 +59,10 @@ function BillingInner() {
     })();
   }, [params]);
 
-  const upgrade = async (p: "createur" | "studio") => {
+  const pay = async (p: "createur" | "studio") => {
     setBusy(true);
     try {
-      const r = await fetch("/api/stripe/checkout", {
+      const r = await fetch("/api/paystack/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan: p }),
@@ -72,20 +71,9 @@ function BillingInner() {
       else if (r.demo)
         setBanner({
           kind: "err",
-          msg: "Stripe n'est pas encore configuré (ajoutez STRIPE_SECRET_KEY dans .env).",
+          msg: "Paiement en mode démo (ajoutez PAYSTACK_SECRET_KEY dans .env pour activer).",
         });
       else setBanner({ kind: "err", msg: r.error || "Erreur." });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const manage = async () => {
-    setBusy(true);
-    try {
-      const r = await fetch("/api/stripe/portal", { method: "POST" }).then((r) => r.json());
-      if (r.url) window.location.href = r.url;
-      else setBanner({ kind: "err", msg: r.error || "Portail indisponible." });
     } finally {
       setBusy(false);
     }
@@ -131,63 +119,58 @@ function BillingInner() {
           <div className="glass neon-border mt-6 rounded-2xl p-6">
             <div className="text-sm text-muted">Votre plan actuel</div>
             <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-              <span
-                className={`rounded-full px-4 py-1.5 text-sm font-bold ${PLAN_UI[plan]?.color ?? "glass"}`}
-              >
+              <span className={`rounded-full px-4 py-1.5 text-sm font-bold ${PLAN_UI[plan]?.color ?? "glass"}`}>
                 {PLAN_UI[plan]?.label ?? plan}
               </span>
-              {status && (
+              {isPremium && expiresAt && (
                 <span className="text-xs text-muted">
-                  Statut : <span className="font-semibold">{status}</span>
+                  Accès actif jusqu'au{" "}
+                  <span className="font-semibold">
+                    {new Date(expiresAt).toLocaleDateString("fr-FR")}
+                  </span>
                 </span>
               )}
             </div>
-            {isPremium && hasCustomer && (
-              <button
-                onClick={manage}
-                disabled={busy}
-                className="glass neon-border mt-4 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold hover:scale-[1.02] disabled:opacity-50"
-              >
-                <Settings size={15} /> Gérer / annuler mon abonnement
-              </button>
-            )}
           </div>
 
           {/* Offres */}
-          {!isPremium && (
-            <div className="mt-6 grid gap-5 sm:grid-cols-2">
-              {[
-                { id: "createur" as const, name: "Créateur", price: "19€", feats: ["Scripts illimités", "Export MP4 HD", "Voix off IA", "Partage direct"] },
-                { id: "studio" as const, name: "Studio", price: "49€", feats: ["Tout Créateur", "Vidéo IA (Runway)", "Avatar parlant", "File prioritaire"] },
-              ].map((p) => (
-                <div key={p.id} className="glass neon-border rounded-2xl p-6">
-                  <h3 className="font-display text-xl font-semibold">{p.name}</h3>
-                  <div className="mt-1 font-display text-3xl font-bold neon-text">
-                    {p.price}<span className="text-sm text-muted"> /mois</span>
-                  </div>
-                  <ul className="mt-4 space-y-2">
-                    {p.feats.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-sm">
-                        <Check size={15} className="mt-0.5 shrink-0 text-neon-lime" /> {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    onClick={() => upgrade(p.id)}
-                    disabled={busy}
-                    className="btn-neon mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold disabled:opacity-50"
-                  >
-                    {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                    Choisir {p.name}
-                  </button>
+          <div className="mt-6 grid gap-5 sm:grid-cols-2">
+            {[
+              { id: "createur" as const, name: "Créateur", price: "10 000 FCFA", feats: ["Scripts illimités", "Export MP4 HD", "Voix off IA", "Partage direct"] },
+              { id: "studio" as const, name: "Studio", price: "25 000 FCFA", feats: ["Tout Créateur", "Vidéo IA (Runway)", "Avatar parlant", "File prioritaire"] },
+            ].map((p) => (
+              <div key={p.id} className="glass neon-border rounded-2xl p-6">
+                <h3 className="font-display text-xl font-semibold">{p.name}</h3>
+                <div className="mt-1 font-display text-2xl font-bold neon-text">
+                  {p.price}<span className="text-sm text-muted"> /mois</span>
                 </div>
-              ))}
-            </div>
-          )}
+                <ul className="mt-4 space-y-2">
+                  {p.feats.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm">
+                      <Check size={15} className="mt-0.5 shrink-0 text-neon-lime" /> {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => pay(p.id)}
+                  disabled={busy}
+                  className="btn-neon mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold disabled:opacity-50"
+                >
+                  {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                  {plan === p.id ? "Renouveler" : `Choisir ${p.name}`}
+                </button>
+              </div>
+            ))}
+          </div>
 
-          {!stripeOn && (
-            <p className="mt-5 text-center text-xs text-muted">
-              💡 Paiements en mode démo : ajoutez <code className="font-mono text-neon-cyan">STRIPE_SECRET_KEY</code> dans .env pour activer la facturation réelle.
+          <p className="mt-5 flex items-center justify-center gap-2 text-center text-xs text-muted">
+            <Smartphone size={13} className="text-neon-cyan" />
+            Paiement par carte ou Mobile Money (Wave, Orange Money, MTN, Moov) via Paystack.
+          </p>
+
+          {!paystackOn && (
+            <p className="mt-2 text-center text-xs text-muted">
+              💡 Mode démo : ajoutez <code className="font-mono text-neon-cyan">PAYSTACK_SECRET_KEY</code> dans .env pour activer les paiements réels.
             </p>
           )}
 

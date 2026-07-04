@@ -20,7 +20,8 @@ type Data = {
   referrals: { name: string; email: string; status: string; createdAt: string }[];
 };
 
-const GOAL = 200; // objectif visuel : 200€ de récompenses (10 filleuls × 20€)
+const REWARD = 10000; // 1 mois Créateur offert par filleul converti (FCFA)
+const GOAL = 100000; // objectif visuel : 100 000 FCFA (10 filleuls)
 
 export default function ReferralPage() {
   const [data, setData] = useState<Data | null>(null);
@@ -51,8 +52,9 @@ export default function ReferralPage() {
     }
   };
 
-  const earned = (data?.stats.rewards ?? 0) * 19; // 19€ par filleul converti
+  const earned = (data?.stats.rewards ?? 0) * REWARD; // 1 mois offert par filleul
   const progress = Math.min(100, (earned / GOAL) * 100);
+  const fmt = (n: number) => n.toLocaleString("fr-FR");
 
   return (
     <>
@@ -93,7 +95,7 @@ export default function ReferralPage() {
             {/* Progression des gains */}
             <div className="glass neon-border rounded-2xl p-6 text-center">
               <p className="text-sm text-muted">Gagnez jusqu'à</p>
-              <p className="font-display text-4xl font-bold neon-text">{GOAL}€ de crédits</p>
+              <p className="font-display text-4xl font-bold neon-text">{fmt(GOAL)} FCFA</p>
               <div className="mt-4 h-3 overflow-hidden rounded-full bg-[var(--border)]">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500 transition-all duration-700"
@@ -101,8 +103,8 @@ export default function ReferralPage() {
                 />
               </div>
               <div className="mt-2 flex justify-between text-xs text-muted">
-                <span>{earned}€ gagnés</span>
-                <span>{GOAL}€</span>
+                <span>{fmt(earned)} FCFA gagnés</span>
+                <span>{fmt(GOAL)} FCFA</span>
               </div>
             </div>
 
@@ -113,7 +115,7 @@ export default function ReferralPage() {
                 {[
                   { icon: Wand2, t: "Partagez votre lien de parrainage avec des amis." },
                   { icon: Sparkles, t: "Ils s'inscrivent et obtiennent -20% sur leur 1er abonnement." },
-                  { icon: Gift, t: "Vous gagnez 1 mois offert (19€) dès leur premier abonnement." },
+                  { icon: Gift, t: "Vous gagnez 1 mois offert (10 000 FCFA) dès leur premier abonnement." },
                 ].map((s, i) => (
                   <div key={i} className="flex items-start gap-3">
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg btn-neon">
