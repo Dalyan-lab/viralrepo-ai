@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Sun, Moon, LogOut, Menu, X, CreditCard, Gift } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 import { Logo } from "./Logo";
+import { StreakBadge } from "./StreakBadge";
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Radar IA" },
@@ -73,6 +74,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
+          {user && <StreakBadge />}
           <button
             onClick={toggle}
             aria-label="Changer de thème"
