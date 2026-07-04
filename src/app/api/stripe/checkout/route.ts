@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getStripe, PLANS, PlanId } from "@/lib/stripe";
+import {
+  getStripe,
+  PLANS,
+  PlanId,
+  ensureCoupon,
+  COUPON_FILLEUL,
+  COUPON_PARRAIN,
+} from "@/lib/stripe";
 
 // Crée une session Stripe Checkout (abonnement mensuel) pour un plan.
 // Sans STRIPE_SECRET_KEY : { demo: true } → l'UI affiche un message d'aide.
@@ -31,6 +38,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Réductions de parrainage : mois offert (parrain récompensé) prioritaire,
+    // sinon réduction de bienvenue (filleul non encore utilisée).
+    const discounts: { coupon: string }[] = [];
+    if (user.pendingReferralReward) {
+      await ensureCoupon(stripe, COUPON_PARRAIN, 100, "Parrainage — 1 mois offert");
+      discounts.push({ coupon: COUPON_PARRAIN });
+    } else if (user.referredById && !user.refereeDiscountUsed) {
+      await ensureCoupon(stripe, COUPON_FILLEUL, 20, "Parrainage — bienvenue -20%");
+      discounts.push({ coupon: COUPON_FILLEUL });
+    }
+
     const checkout = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer_email: user.stripeCustomerId ? undefined : user.email,
@@ -47,11 +65,25 @@ export async function POST(req: NextRequest) {
           },
         },
       ],
+      ...(discounts.length ? { discounts } : { allow_promotion_codes: true }),
       metadata: { userId: user.id, plan },
       subscription_data: { metadata: { userId: user.id, plan } },
       success_url: `${appUrl}/billing?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/billing?canceled=1`,
     });
+
+    // On marque les récompenses consommées (au plus tard confirmé au webhook).
+    if (user.pendingReferralReward) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { pendingReferralReward: false },
+      });
+    } else if (user.referredById && !user.refereeDiscountUsed) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { refereeDiscountUsed: true },
+      });
+    }
 
     return NextResponse.json({ url: checkout.url });
   } catch (e: any) {

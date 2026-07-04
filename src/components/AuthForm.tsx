@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -43,6 +43,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   );
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const resetOk = params.get("reset") === "ok";
+  const ref = params.get("ref");
+
+  // Parrainage : mémorise le code dans un cookie (survit au détour OAuth).
+  useEffect(() => {
+    if (ref) {
+      document.cookie = `vr_ref=${encodeURIComponent(ref)}; max-age=2592000; path=/; samesite=lax`;
+    }
+  }, [ref]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +60,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       const res = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(mode === "register" ? { ...form, ref } : form),
       });
       const data = await res.json();
       if (!res.ok) {

@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { createSessionToken, SESSION_COOKIE } from "@/lib/auth";
+import { linkReferral } from "@/lib/referral";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password } = await req.json();
+    const { name, email, password, ref } = await req.json();
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -32,6 +33,10 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.create({
       data: { name, email, password: hash },
     });
+
+    // Parrainage : lien via le code passé dans le corps ou le cookie vr_ref.
+    const refCode = ref || req.cookies.get("vr_ref")?.value;
+    await linkReferral(user.id, refCode);
 
     const token = await createSessionToken({
       userId: user.id,

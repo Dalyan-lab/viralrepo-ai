@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
+import { grantReferralReward } from "@/lib/referral";
 
 // Confirmation après retour du Checkout : la page /billing appelle cette route
 // avec le session_id pour activer le plan immédiatement — filet de sécurité qui
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
           subscriptionStatus: "active",
         },
       });
+      // Récompense de parrainage (idempotent) — filet si le webhook n'est pas configuré.
+      await grantReferralReward(session.userId);
       return NextResponse.json({ ok: true, plan });
     }
     return NextResponse.json({ ok: false, status: cs.payment_status });

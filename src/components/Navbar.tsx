@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Sun, Moon, LogOut, Menu, X, CreditCard } from "lucide-react";
+import { Sun, Moon, LogOut, Menu, X, CreditCard, Gift } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 import { Logo } from "./Logo";
 
@@ -84,6 +84,14 @@ export function Navbar() {
           {user ? (
             <div className="hidden items-center gap-2 md:flex">
               <span className="text-sm text-muted">👋 {user.name}</span>
+              <Link
+                href="/referral"
+                aria-label="Parrainage"
+                title="Parrainez vos amis"
+                className="grid h-9 w-9 place-items-center rounded-lg glass hover:scale-105"
+              >
+                <Gift size={15} />
+              </Link>
               <Link
                 href="/billing"
                 aria-label="Facturation"
