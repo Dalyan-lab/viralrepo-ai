@@ -69,7 +69,7 @@ const STEPS = [
 const PRICING = [
   {
     name: "Découverte",
-    price: "0€",
+    price: "0 FCFA",
     period: "pour toujours",
     features: ["Radar IA temps réel", "3 scripts / jour", "Aperçu Reel vertical", "Export .txt"],
     cta: "Commencer gratuitement",
@@ -78,7 +78,7 @@ const PRICING = [
   },
   {
     name: "Créateur",
-    price: "19€",
+    price: "10 000 FCFA",
     period: "/ mois",
     features: [
       "Scripts illimités",
@@ -93,7 +93,7 @@ const PRICING = [
   },
   {
     name: "Studio",
-    price: "49€",
+    price: "25 000 FCFA",
     period: "/ mois",
     features: [
       "Tout le plan Créateur",
