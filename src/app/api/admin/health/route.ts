@@ -145,6 +145,23 @@ async function resendCheck(): Promise<Check> {
   return check;
 }
 
+function stripeCheck(): Check {
+  const key = process.env.STRIPE_SECRET_KEY;
+  const hook = process.env.STRIPE_WEBHOOK_SECRET;
+  return {
+    id: "stripe",
+    label: "Paiements (Stripe)",
+    role: "Abonnements Créateur / Studio",
+    configured: !!key,
+    status: key ? (hook ? "live" : "warn") : "demo",
+    detail: key
+      ? hook
+        ? "Clé + webhook présents. Facturation active."
+        : "Clé présente, mais STRIPE_WEBHOOK_SECRET manquant (abonnement confirmé au retour du paiement)."
+      : "Sans clé : plans affichés en mode démo.",
+  };
+}
+
 function runwayCheck(): Check {
   const key = process.env.RUNWAY_API_KEY;
   return {
@@ -299,6 +316,7 @@ export async function GET() {
     resend,
     eleven,
     runwayCheck(),
+    stripeCheck(),
     did,
     secretCheck(),
   ];

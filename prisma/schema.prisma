@@ -16,6 +16,12 @@ model User {
   role      String   @default("user") // user | admin
   createdAt DateTime @default(now())
 
+  // Abonnement Stripe
+  plan                 String  @default("decouverte") // decouverte | createur | studio
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String?
+  subscriptionStatus   String? // active | canceled | past_due | ...
+
   scripts    Script[]
   avatarJobs AvatarJob[]
   resets     PasswordReset[]
