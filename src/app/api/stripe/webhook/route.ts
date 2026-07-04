@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
+import { grantReferralReward } from "@/lib/referral";
 
 // Webhook Stripe : source de vérité des abonnements. Met à jour le plan de
 // l'utilisateur à chaque événement (paiement, changement, annulation).
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest) {
               subscriptionStatus: "active",
             },
           });
+          // Récompense de parrainage : ce filleul vient de s'abonner → on
+          // convertit le parrainage et on récompense le parrain (1 mois offert).
+          await grantReferralReward(userId);
         }
         break;
       }

@@ -22,9 +22,32 @@ model User {
   stripeSubscriptionId String?
   subscriptionStatus   String? // active | canceled | past_due | ...
 
-  scripts    Script[]
-  avatarJobs AvatarJob[]
-  resets     PasswordReset[]
+  // Parrainage
+  referralCode          String? @unique @default(cuid()) // généré à la création ; init paresseuse pour les comptes existants
+  referredById          String? // id du parrain
+  referralRewards       Int     @default(0) // nombre de filleuls convertis (récompenses gagnées)
+  refereeDiscountUsed   Boolean @default(false) // le filleul a déjà utilisé sa réduction de bienvenue
+  pendingReferralReward Boolean @default(false) // récompense parrain à appliquer au prochain abonnement
+
+  scripts           Script[]
+  avatarJobs        AvatarJob[]
+  resets            PasswordReset[]
+  referralsMade     Referral[] @relation("Referrer")
+  referralReceived  Referral?  @relation("Referee")
+}
+
+// Un parrainage : lien parrain → filleul, avec suivi de conversion.
+model Referral {
+  id            String   @id @default(cuid())
+  referrerId    String
+  refereeId     String   @unique
+  status        String   @default("pending") // pending | converted
+  rewardGranted Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  convertedAt   DateTime?
+
+  referrer User @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referee  User @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
 }
 
 model PasswordReset {

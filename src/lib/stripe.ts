@@ -24,3 +24,26 @@ export const PLAN_LABELS: Record<string, string> = {
   createur: "Créateur",
   studio: "Studio",
 };
+
+// Coupons de parrainage (créés une fois, réutilisés). Réduction appliquée
+// au 1er paiement uniquement (duration: once).
+export const COUPON_FILLEUL = "REFERRAL_FILLEUL"; // -20% bienvenue filleul
+export const COUPON_PARRAIN = "REFERRAL_PARRAIN"; // -100% (1 mois offert) parrain
+
+export async function ensureCoupon(
+  stripe: Stripe,
+  id: string,
+  percentOff: number,
+  name: string
+) {
+  try {
+    return await stripe.coupons.retrieve(id);
+  } catch {
+    return await stripe.coupons.create({
+      id,
+      percent_off: percentOff,
+      duration: "once",
+      name,
+    });
+  }
+}

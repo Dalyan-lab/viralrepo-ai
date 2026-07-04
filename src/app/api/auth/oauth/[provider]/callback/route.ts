@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createSessionToken, SESSION_COOKIE } from "@/lib/auth";
 import { fetchOAuthUser, OAuthProvider } from "@/lib/oauth";
+import { linkReferral } from "@/lib/referral";
 
 // Callback OAuth : échange le code, trouve ou crée le compte, ouvre la session.
 export async function GET(
@@ -36,6 +37,8 @@ export async function GET(
         provider,
       },
     });
+    // Parrainage : nouveau filleul via OAuth (code stocké dans vr_ref)
+    await linkReferral(user.id, req.cookies.get("vr_ref")?.value);
   }
 
   const token = await createSessionToken({
