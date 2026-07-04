@@ -30,11 +30,28 @@ model User {
   refereeDiscountUsed   Boolean @default(false) // le filleul a déjà utilisé sa réduction de bienvenue
   pendingReferralReward Boolean @default(false) // récompense parrain à appliquer au prochain abonnement
 
+  // Série d'engagement (streak quotidien)
+  streak         Int       @default(0) // jours consécutifs d'activité
+  longestStreak  Int       @default(0) // record personnel
+  lastActiveDate String? // dernier jour actif (AAAA-MM-JJ, UTC)
+
   scripts           Script[]
   avatarJobs        AvatarJob[]
   resets            PasswordReset[]
   referralsMade     Referral[] @relation("Referrer")
   referralReceived  Referral?  @relation("Referee")
+  activityDays      ActivityDay[]
+}
+
+// Un jour d'activité (pour la vue hebdomadaire de la série).
+model ActivityDay {
+  id     String @id @default(cuid())
+  userId String
+  date   String // AAAA-MM-JJ (UTC)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
 }
 
 // Un parrainage : lien parrain → filleul, avec suivi de conversion.

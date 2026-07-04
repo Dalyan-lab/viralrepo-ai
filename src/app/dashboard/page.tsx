@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { FuturisticBackground } from "@/components/FuturisticBackground";
+import { StreakWidget } from "@/components/StreakWidget";
 import type { TrendingRepo } from "@/lib/github";
 
 const CATEGORIES = [
@@ -117,6 +118,11 @@ export default function DashboardPage() {
             </p>
           )}
         </motion.div>
+
+        {/* ---- Série d'engagement ---- */}
+        <div className="mt-6">
+          <StreakWidget />
+        </div>
 
         {/* ---- Barre de filtres ---- */}
         <div className="glass mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3">
