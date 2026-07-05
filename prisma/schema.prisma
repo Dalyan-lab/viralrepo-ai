@@ -31,9 +31,10 @@ model User {
   pendingReferralReward Boolean @default(false) // récompense parrain à appliquer au prochain abonnement
 
   // Série d'engagement (streak quotidien)
-  streak         Int       @default(0) // jours consécutifs d'activité
-  longestStreak  Int       @default(0) // record personnel
-  lastActiveDate String? // dernier jour actif (AAAA-MM-JJ, UTC)
+  streak                   Int    @default(0) // jours consécutifs d'activité
+  longestStreak            Int    @default(0) // record personnel
+  lastActiveDate           String? // dernier jour actif (AAAA-MM-JJ, UTC)
+  lastStreakRewardMilestone Int   @default(0) // plus haut palier de série récompensé
 
   scripts           Script[]
   avatarJobs        AvatarJob[]
