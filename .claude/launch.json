@@ -13,6 +13,13 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "architecte",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "./Architecte", "start"],
+      "port": 3100,
+      "autoPort": true
     }
   ]
 }

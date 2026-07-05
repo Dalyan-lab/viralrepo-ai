@@ -12,7 +12,6 @@ const NAV_LINKS = [
   { href: "/dashboard", label: "Radar IA" },
   { href: "/studio", label: "Studio" },
   { href: "/production", label: "Production" },
-  { href: "/architect", label: "Architecte" },
   { href: "/avatar", label: "Avatar" },
   { href: "/thumbnails", label: "Miniatures" },
 ];
