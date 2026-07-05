@@ -12,3 +12,6 @@ public/ffmpeg/ffmpeg-core.wasm
 
 # Cache TypeScript
 tsconfig.tsbuildinfo
+
+# Plateforme autonome Studio Architect (projet séparé)
+Architecte/

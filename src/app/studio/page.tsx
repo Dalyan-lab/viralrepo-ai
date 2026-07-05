@@ -3,12 +3,12 @@
 // Studio viral : génération du script en streaming mot-à-mot (Gemini),
 // aperçu Reel vertical, voix off, export MP4 et partage direct.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  Sparkles, Download, Share2, Clapperboard, Mic, Square, Upload,
-  UserSquare2, Save, Check, Loader2, FileText, Youtube, Twitter, Music2, Volume2,
+  Sparkles, Download, Share2, Clapperboard,
+  Save, Check, Loader2, FileText, Youtube, Twitter, Music2,
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { FuturisticBackground } from "@/components/FuturisticBackground";
@@ -33,17 +33,6 @@ export default function StudioPage() {
   const [generating, setGenerating] = useState(false);
   const [saved, setSaved] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
-
-  // Voix personnelle : import ou enregistrement micro
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [recording, setRecording] = useState(false);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-
-  // Voix off IA (ElevenLabs)
-  const [ttsVoice, setTtsVoice] = useState("charlotte");
-  const [voiceGen, setVoiceGen] = useState(false);
-  const [voiceNote, setVoiceNote] = useState("");
 
   // Export vidéo
   const [exporting, setExporting] = useState(false);
@@ -110,73 +99,6 @@ export default function StudioPage() {
     }
   };
 
-  // --- Voix personnelle ---
-  const onImportAudio = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setAudioBlob(f);
-    setAudioUrl(URL.createObjectURL(f));
-  };
-
-  // Génère la voix off IA (ElevenLabs) à partir du script, prête à muxer.
-  const generateAIVoice = async () => {
-    if (lines.length === 0) return;
-    setVoiceGen(true);
-    setVoiceNote("");
-    try {
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: lines.join(". "), voice: ttsVoice }),
-      });
-      const ct = res.headers.get("content-type") || "";
-      if (ct.includes("audio")) {
-        const blob = await res.blob();
-        setAudioBlob(blob);
-        setAudioUrl(URL.createObjectURL(blob));
-        setVoiceNote("✨ Voix off IA générée — incluse dans l'export MP4.");
-      } else {
-        const data = await res.json().catch(() => ({}));
-        if (data.demo) {
-          setVoiceNote(
-            "Mode démo : ajoutez ELEVENLABS_API_KEY dans .env pour la vraie voix IA. En attendant, la voix du navigateur joue dans l'aperçu."
-          );
-        } else {
-          setVoiceNote(data.error || "Échec de la génération vocale.");
-        }
-      }
-    } catch {
-      setVoiceNote("Erreur réseau — réessayez.");
-    } finally {
-      setVoiceGen(false);
-    }
-  };
-
-  const toggleRecord = async () => {
-    if (recording) {
-      recorderRef.current?.stop();
-      setRecording(false);
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-      rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-      rec.onstop = () => {
-        const blob = new Blob(chunks, { type: rec.mimeType });
-        setAudioBlob(blob);
-        setAudioUrl(URL.createObjectURL(blob));
-        stream.getTracks().forEach((t) => t.stop());
-      };
-      rec.start();
-      recorderRef.current = rec;
-      setRecording(true);
-    } catch {
-      alert("Micro inaccessible. Vérifiez les permissions du navigateur.");
-    }
-  };
-
   // --- Export MP4 ---
   const exportVideo = async () => {
     if (lines.length === 0) return;
@@ -187,7 +109,6 @@ export default function StudioPage() {
         lines,
         repoName: repo.fullName,
         badge: repo.badge,
-        audioBlob,
         onProgress: (pct, label) => {
           setExportPct(pct);
           setExportLabel(label);
@@ -222,10 +143,6 @@ export default function StudioPage() {
     a.download = `script-${repo.name}-${platform}.txt`;
     a.click();
     URL.revokeObjectURL(a.href);
-  };
-
-  const goAvatar = () => {
-    sessionStorage.setItem("vr-avatar-script", script);
   };
 
   return (
@@ -353,71 +270,6 @@ export default function StudioPage() {
               </div>
             </div>
 
-            {/* Voix */}
-            <div className="glass neon-border rounded-2xl p-5">
-              <h2 className="font-display font-semibold">3. Voix off (optionnel)</h2>
-              <p className="mt-1 text-xs text-muted">
-                Générez une voix off IA ultra-réaliste (ElevenLabs), ou enregistrez /
-                importez la vôtre — elle sera muxée dans le MP4 exporté.
-              </p>
-
-              {/* Voix off IA ElevenLabs */}
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <select
-                  value={ttsVoice}
-                  onChange={(e) => setTtsVoice(e.target.value)}
-                  className="rounded-xl glass px-3 py-2.5 text-sm outline-none"
-                >
-                  <option value="charlotte">Charlotte (F)</option>
-                  <option value="antoni">Antoni (H)</option>
-                  <option value="rachel">Rachel (F)</option>
-                </select>
-                <button
-                  onClick={generateAIVoice}
-                  disabled={voiceGen || lines.length === 0}
-                  className="btn-neon flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
-                >
-                  {voiceGen ? <Loader2 size={15} className="animate-spin" /> : <Volume2 size={15} />}
-                  {voiceGen ? "Génération de la voix…" : "Générer la voix off IA"}
-                </button>
-              </div>
-              {voiceNote && <p className="mt-2 text-xs text-muted">{voiceNote}</p>}
-
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <button
-                  onClick={toggleRecord}
-                  className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
-                    recording ? "bg-red-500 text-white animate-pulse" : "glass hover:scale-[1.02]"
-                  }`}
-                >
-                  {recording ? <Square size={15} /> : <Mic size={15} />}
-                  {recording ? "Arrêter l'enregistrement" : "Enregistrer ma voix"}
-                </button>
-                <label className="glass flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold hover:scale-[1.02]">
-                  <Upload size={15} /> Importer un audio
-                  <input type="file" accept="audio/*" onChange={onImportAudio} className="hidden" />
-                </label>
-                {audioUrl && (
-                  <audio controls src={audioUrl} className="h-9 max-w-[220px]" />
-                )}
-              </div>
-            </div>
-
-            {/* Avatar */}
-            <div className="glass neon-border rounded-2xl p-5">
-              <h2 className="font-display font-semibold">4. Avatar qui parle (lip-sync)</h2>
-              <p className="mt-1 text-xs text-muted">
-                Transformez ce script en vidéo présentée par un avatar animé (D-ID).
-                Le rendu passe en file d'attente : vous êtes notifié dès qu'il est prêt.
-              </p>
-              <Link
-                href="/avatar"
-                onClick={goAvatar}
-                className="btn-neon mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold"
-              >
-                <UserSquare2 size={15} /> Créer mon avatar parlant
-              </Link>
-            </div>
           </div>
 
           {/* ---- Colonne droite : aperçu + export ---- */}
@@ -432,7 +284,6 @@ export default function StudioPage() {
                 badge={repo.badge}
                 ttsEnabled={ttsEnabled}
                 onToggleTts={() => setTtsEnabled((v) => !v)}
-                userAudioUrl={audioUrl}
               />
 
               <button
@@ -458,8 +309,7 @@ export default function StudioPage() {
 
               <p className="mt-3 text-center text-[11px] text-muted">
                 MP4 vertical 720×1280 généré dans votre navigateur (canvas +
-                ffmpeg.wasm) — vidéo prête à publier, sans montage.
-                {audioBlob ? " Votre voix sera incluse." : ""}
+                ffmpeg.wasm). Pour la voix off et l'avatar, passez par la Production.
               </p>
             </div>
 
