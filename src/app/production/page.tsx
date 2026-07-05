@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { FuturisticBackground } from "@/components/FuturisticBackground";
+import { AvatarStep } from "@/components/AvatarStep";
 import { exportMontage, sceneDuration } from "@/lib/montage";
 import type { ViralHook } from "@/lib/production";
 
@@ -769,6 +770,9 @@ export default function ProductionPage() {
                 {audioUrl && <audio controls src={audioUrl} className="h-9 max-w-[220px]" />}
               </div>
             </div>
+
+            {/* Avatar présentateur (lip-sync) */}
+            <AvatarStep scriptText={scenes.map((s) => s.audio).join(". ")} />
           </div>
         )}
 
