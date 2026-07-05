@@ -86,6 +86,33 @@ export async function paystackVerify(reference: string): Promise<{
   };
 }
 
+/** Prélève un montant sur une autorisation existante (renouvellement auto,
+ *  off-session). Fonctionne pour les cartes ; le Mobile Money peut exiger
+ *  l'accord de l'utilisateur (le renouvellement échoue alors → à faire manuellement). */
+export async function paystackChargeAuthorization(params: {
+  email: string;
+  amountXOF: number;
+  authorizationCode: string;
+  reference: string;
+  metadata: Record<string, any>;
+}): Promise<boolean> {
+  const res = await fetch(`${API}/transaction/charge_authorization`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      email: params.email,
+      amount: Math.round(params.amountXOF * SUBUNIT),
+      currency: "XOF",
+      authorization_code: params.authorizationCode,
+      reference: params.reference,
+      metadata: params.metadata,
+    }),
+  });
+  if (!res.ok) return false;
+  const json = await res.json();
+  return json.data?.status === "success";
+}
+
 /** Vérifie la signature d'un webhook Paystack (HMAC SHA512 du corps brut). */
 export function verifyPaystackSignature(rawBody: string, signature: string | null): boolean {
   const key = process.env.PAYSTACK_SECRET_KEY;

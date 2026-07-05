@@ -21,7 +21,16 @@ export type StreakState = {
   longestStreak: number;
   activeToday: boolean;
   week: WeekDay[];
+  reward?: { milestone: number; bonusDays: number } | null; // palier atteint à ce ping
 };
+
+// Paliers de série → jours d'accès premium offerts (fidélité).
+export const MILESTONES: { days: number; bonusDays: number }[] = [
+  { days: 3, bonusDays: 1 },
+  { days: 7, bonusDays: 2 },
+  { days: 14, bonusDays: 3 },
+  { days: 30, bonusDays: 7 },
+];
 
 /** Construit la fenêtre des 7 derniers jours (aujourd'hui inclus). */
 async function buildWeek(userId: string, today: string): Promise<WeekDay[]> {
@@ -65,25 +74,51 @@ export async function getStreakState(userId: string): Promise<StreakState> {
   };
 }
 
-/** Enregistre l'activité du jour et met à jour la série. Idempotent par jour. */
+/** Enregistre l'activité du jour et met à jour la série. Idempotent par jour.
+ *  Récompense les paliers (jours d'accès premium offerts). */
 export async function pingStreak(userId: string): Promise<StreakState> {
   const today = dayStr(new Date());
   const yesterday = addDays(today, -1);
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { streak: true, longestStreak: true, lastActiveDate: true },
+    select: {
+      streak: true,
+      longestStreak: true,
+      lastActiveDate: true,
+      lastStreakRewardMilestone: true,
+      plan: true,
+      planExpiresAt: true,
+    },
   });
   if (!user) return getStreakState(userId);
+
+  let reward: { milestone: number; bonusDays: number } | null = null;
 
   if (user.lastActiveDate !== today) {
     const newStreak = user.lastActiveDate === yesterday ? user.streak + 1 : 1;
     const longest = Math.max(user.longestStreak, newStreak);
+
+    // Palier atteint (le plus élevé non encore récompensé) ?
+    const hit = MILESTONES.find(
+      (m) => newStreak >= m.days && m.days > user.lastStreakRewardMilestone
+    );
+
+    const data: any = { streak: newStreak, longestStreak: longest, lastActiveDate: today };
+    if (hit) {
+      reward = { milestone: hit.days, bonusDays: hit.bonusDays };
+      const base =
+        user.planExpiresAt && user.planExpiresAt > new Date()
+          ? user.planExpiresAt
+          : new Date();
+      data.lastStreakRewardMilestone = hit.days;
+      data.plan = user.plan === "decouverte" ? "createur" : user.plan;
+      data.planExpiresAt = new Date(base.getTime() + hit.bonusDays * 86_400_000);
+      data.subscriptionStatus = "active";
+    }
+
     await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
-        data: { streak: newStreak, longestStreak: longest, lastActiveDate: today },
-      }),
+      prisma.user.update({ where: { id: userId }, data }),
       prisma.activityDay.upsert({
         where: { userId_date: { userId, date: today } },
         create: { userId, date: today },
@@ -92,5 +127,5 @@ export async function pingStreak(userId: string): Promise<StreakState> {
     ]);
   }
 
-  return getStreakState(userId);
+  return { ...(await getStreakState(userId)), reward };
 }
