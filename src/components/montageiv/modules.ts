@@ -19,6 +19,8 @@ export type ModuleDef = {
   icon: LucideIcon;
   cost: number;
   tagline: string;
+  greeting: string; // sous-titre du hero « Bonjour, … ? »
+  action: string; // libellé de la pastille (ex. « Créer une image »)
   promptLabel: string;
   promptPlaceholder: string;
   cta: string;
@@ -33,6 +35,8 @@ export const MODULES: ModuleDef[] = [
     icon: ImageIcon,
     cost: 4,
     tagline: "Génération & édition d'images IA",
+    greeting: "Vous voulez décrire une image ?",
+    action: "Créer une image",
     promptLabel: "Décrivez votre image",
     promptPlaceholder: "Un robot néon codant dans une salle serveur cyberpunk, éclairage cinématique…",
     cta: "Générer",
@@ -50,15 +54,15 @@ export const MODULES: ModuleDef[] = [
         options: [{ v: "16:9", l: "16:9" }, { v: "9:16", l: "9:16" }, { v: "1:1", l: "1:1" }],
       },
       { kind: "number", key: "count", label: "Nombre d'images", min: 1, max: 4, def: 1 },
+    ],
+    advanced: [
+      { kind: "text", key: "style", label: "Style", placeholder: "cinématique, aquarelle, 3D…" },
+      { kind: "text", key: "personnage", label: "Caractère", placeholder: "description du personnage récurrent" },
+      { kind: "text", key: "objet", label: "Objet", placeholder: "objet à inclure" },
       {
         kind: "select", key: "quality", label: "Qualité", def: "standard",
         options: [{ v: "standard", l: "Standard" }, { v: "hd", l: "HD" }, { v: "ultra", l: "Ultra" }],
       },
-    ],
-    advanced: [
-      { kind: "text", key: "style", label: "Style", placeholder: "cinématique, aquarelle, 3D…" },
-      { kind: "text", key: "personnage", label: "Personnage", placeholder: "description du personnage récurrent" },
-      { kind: "text", key: "objet", label: "Objet", placeholder: "objet à inclure" },
       { kind: "text", key: "negative", label: "Prompt négatif", placeholder: "flou, texte, watermark…" },
       { kind: "number", key: "seed", label: "Seed", min: 0, max: 99999, def: 0 },
       { kind: "number", key: "cfg", label: "CFG", min: 1, max: 20, def: 7 },
@@ -77,6 +81,8 @@ export const MODULES: ModuleDef[] = [
     icon: Clapperboard,
     cost: 20,
     tagline: "Génération vidéo & animation",
+    greeting: "Vous voulez décrire une vidéo ?",
+    action: "Créer une vidéo",
     promptLabel: "Décrivez votre plan vidéo",
     promptPlaceholder: "Travelling lent sur une ville futuriste au coucher du soleil…",
     cta: "Générer la vidéo",
@@ -118,6 +124,8 @@ export const MODULES: ModuleDef[] = [
     icon: Music,
     cost: 10,
     tagline: "Composition musicale IA",
+    greeting: "Vous voulez décrire votre musique ?",
+    action: "Générateur de musique",
     promptLabel: "Décrivez votre morceau",
     promptPlaceholder: "Une mélodie électro inspirante pour une intro YouTube tech…",
     cta: "Composer",
@@ -156,6 +164,8 @@ export const MODULES: ModuleDef[] = [
     icon: Mic2,
     cost: 2,
     tagline: "Voix IA ultra-réalistes",
+    greeting: "Quel texte dois-je lire ?",
+    action: "Créer une voix",
     promptLabel: "Texte à dire",
     promptPlaceholder: "Collez ou écrivez le texte à transformer en voix…",
     cta: "Générer la voix",
@@ -180,6 +190,8 @@ export const MODULES: ModuleDef[] = [
     icon: UserSquare2,
     cost: 15,
     tagline: "Avatars parlants animés",
+    greeting: "Créons votre avatar parlant ?",
+    action: "Créer un avatar",
     promptLabel: "Texte que l'avatar doit dire",
     promptPlaceholder: "Bonjour et bienvenue sur ma chaîne !…",
     cta: "Créer l'avatar",
@@ -200,10 +212,12 @@ export const MODULES: ModuleDef[] = [
   },
   {
     id: "redacteur",
-    label: "Rédacteur IA",
+    label: "Rédacteur en chef",
     icon: PenLine,
     cost: 1,
     tagline: "Assistant rédactionnel complet",
+    greeting: "Que dois-je rédiger pour vous ?",
+    action: "Rédiger",
     promptLabel: "Sujet ou texte source",
     promptPlaceholder: "Sujet de l'article, texte à corriger/traduire/résumer…",
     cta: "Rédiger",
