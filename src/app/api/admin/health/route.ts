@@ -174,6 +174,20 @@ function runwayCheck(): Check {
   };
 }
 
+function replicateCheck(): Check {
+  const key = process.env.REPLICATE_API_TOKEN;
+  return {
+    id: "replicate",
+    label: "Montageiv — Replicate",
+    role: "Image (FLUX), vidéo & musique de Montageiv IA",
+    configured: !!key,
+    status: key ? "live" : "demo",
+    detail: key
+      ? "Clé présente. Générateurs image/vidéo/musique actifs (paiement à l'usage)."
+      : "Sans clé : modules Montageiv en mode démo.",
+  };
+}
+
 async function elevenCheck(): Promise<Check> {
   const key = process.env.ELEVENLABS_API_KEY;
   const check: Check = {
@@ -314,6 +328,7 @@ export async function GET() {
     resend,
     eleven,
     runwayCheck(),
+    replicateCheck(),
     paystackCheck(),
     did,
     secretCheck(),

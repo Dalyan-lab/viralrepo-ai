@@ -133,12 +133,27 @@ function Workspace() {
   const count = mod!.id === "image" ? Number(params.count ?? 1) : 1;
   const cost = mod!.cost * count;
 
-  // Sonde une tâche asynchrone (vidéo Runway / avatar D-ID) puis met à jour la création.
-  const pollAsync = async (creationId: string, kind: "video" | "avatar", taskOrJobId: string) => {
-    for (let i = 0; i < 60; i++) {
+  // Sonde une tâche asynchrone (Replicate / vidéo Runway / avatar D-ID) puis met à jour la création.
+  const pollAsync = async (
+    creationId: string,
+    kind: "video" | "avatar" | "replicate",
+    taskOrJobId: string
+  ) => {
+    const finish = (url: string) =>
+      fetch(`/api/montageiv/creations/${creationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resultUrl: url, status: "done" }),
+      }).then(load);
+
+    for (let i = 0; i < 72; i++) {
       await new Promise((r) => setTimeout(r, 5000));
       try {
-        if (kind === "video") {
+        if (kind === "replicate") {
+          const st = await fetch(`/api/montageiv/replicate/${taskOrJobId}`).then((r) => r.json());
+          if (st.status === "succeeded" && st.url) return finish(st.url);
+          if (st.status === "failed" || st.status === "canceled" || st.status === "error") break;
+        } else if (kind === "video") {
           const st = await fetch(`/api/video/${taskOrJobId}`).then((r) => r.json());
           if (st.status === "done" && st.videoUrl) {
             await fetch(`/api/montageiv/creations/${creationId}`, {
@@ -187,18 +202,22 @@ function Workspace() {
         setNote(`⚠️ ${data.error ?? "Erreur de génération."}`);
         return;
       }
+      const asyncJob = data.replicateId || data.taskId || data.jobId;
       if (data.demo) {
         setNote(
           mod!.id === "musique"
-            ? "🎵 Mélodie synthétisée localement (module démo — API musicale à brancher)."
-            : "Mode démo : ajoutez la clé API correspondante dans .env pour un résultat réel."
+            ? "🎵 Mélodie synthétisée localement (démo — ajoutez REPLICATE_API_TOKEN pour la vraie musique IA)."
+            : "Mode démo : ajoutez REPLICATE_API_TOKEN (ou la clé du module) dans .env pour un résultat réel."
         );
+      } else if (asyncJob) {
+        setNote(`⏳ Génération lancée (−${data.cost} crédits) — le résultat apparaîtra dans la galerie.`);
       } else {
         setNote(`✅ Génération réussie (−${data.cost} crédits).`);
       }
       await load();
       // Suivi asynchrone
       const first = data.creations?.[0];
+      if (first && data.replicateId) pollAsync(first.id, "replicate", data.replicateId);
       if (first && data.taskId) pollAsync(first.id, "video", data.taskId);
       if (first && data.jobId) pollAsync(first.id, "avatar", data.jobId);
       // Rafraîchit la jauge de crédits du header

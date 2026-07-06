@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { replicateConfigured, replicateRun, urlToDataUrl, MODELS } from "./replicate";
 
 // Moteur Montageiv IA : crédits partagés + générateurs des modules.
 // Chaque module réutilise les intégrations existantes (Gemini, ElevenLabs,
@@ -68,6 +69,25 @@ export async function generateImage(
   prompt: string,
   params: { ratio?: string; negative?: string; quality?: string }
 ): Promise<{ url: string; demo: boolean }> {
+  // 1) Replicate FLUX (prioritaire : meilleur rapport qualité/prix)
+  if (replicateConfigured()) {
+    try {
+      const r = await replicateRun(MODELS.image(), {
+        prompt: `${prompt}${params.negative ? ` (avoid: ${params.negative})` : ""}`,
+        aspect_ratio: params.ratio === "1:1" ? "1:1" : params.ratio === "9:16" ? "9:16" : "16:9",
+        num_outputs: 1,
+        output_format: "png",
+        go_fast: params.quality !== "ultra",
+      });
+      if (r.url) {
+        const data = await urlToDataUrl(r.url);
+        return { url: data || r.url, demo: false };
+      }
+    } catch {
+      /* repli Gemini / démo */
+    }
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   const vertical = params.ratio === "9:16";
   if (apiKey) {
@@ -204,10 +224,31 @@ export async function generateVoice(
 // Pas d'API musicale branchée : on synthétise une vraie mélodie (WAV) côté
 // serveur — déterministe selon le prompt, tempo et ambiance ajustables.
 
-export function generateMusic(
+export async function generateMusic(
   prompt: string,
-  params: { tempo?: number; duree?: number; ambiance?: string }
-): { url: string; demo: boolean } {
+  params: { tempo?: number; duree?: number; ambiance?: string; genre?: string; instrument?: string }
+): Promise<{ url: string; demo: boolean }> {
+  // 1) Replicate MusicGen (vraie musique IA)
+  if (replicateConfigured()) {
+    try {
+      const desc = [params.genre, params.ambiance, params.instrument, prompt]
+        .filter(Boolean)
+        .join(", ");
+      const r = await replicateRun(MODELS.music(), {
+        prompt: desc,
+        duration: Math.min(20, Math.max(4, params.duree ?? 8)),
+        model_version: "stereo-large",
+        output_format: "mp3",
+      });
+      if (r.url) {
+        const data = await urlToDataUrl(r.url);
+        if (data) return { url: data, demo: false };
+      }
+    } catch {
+      /* repli synthèse WAV locale */
+    }
+  }
+
   const sampleRate = 16000;
   const seconds = Math.min(12, Math.max(4, params.duree ?? 8));
   const bpm = Math.min(180, Math.max(60, params.tempo ?? 100));

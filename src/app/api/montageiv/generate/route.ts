@@ -5,6 +5,7 @@ import {
   ModuleId, MODULE_COSTS, consumeCredits,
   generateImage, generateText, generateVoice, generateMusic,
 } from "@/lib/montageiv";
+import { replicateConfigured, replicateCreate, MODELS } from "@/lib/replicate";
 
 // Génération Montageiv IA — un endpoint unique, comportement par module.
 // Consomme les crédits, enregistre la création dans l'historique partagé.
@@ -91,14 +92,30 @@ export async function POST(req: NextRequest) {
       }
 
       case "musique": {
-        const r = generateMusic(prompt, params);
+        const r = await generateMusic(prompt, params);
         const c = await save({ resultUrl: r.url });
         return NextResponse.json({ creations: [c], demo: r.demo, cost });
       }
 
       case "video": {
+        // 1) Replicate (asynchrone : le client sonde /api/montageiv/replicate/[id])
+        if (replicateConfigured()) {
+          try {
+            const input: any = { prompt: prompt.slice(0, 500) };
+            if (params.image) input.first_frame_image = params.image;
+            const pred = await replicateCreate(MODELS.video(), input);
+            if (pred.url) {
+              const c = await save({ resultUrl: pred.url });
+              return NextResponse.json({ creations: [c], demo: false, cost });
+            }
+            const c = await save({ status: "processing" });
+            return NextResponse.json({ creations: [c], replicateId: pred.id, demo: false, cost });
+          } catch {
+            /* repli Runway / démo */
+          }
+        }
+        // 2) Runway image → vidéo (si clé + image source)
         const apiKey = process.env.RUNWAY_API_KEY;
-        // Réel : image → vidéo via Runway (asynchrone, le client sondera)
         if (apiKey && params.image) {
           const res = await fetch("https://api.dev.runwayml.com/v1/image_to_video", {
             method: "POST",
@@ -121,7 +138,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ creations: [c], taskId: data.id, demo: false, cost });
           }
         }
-        // Démo : clip d'exemple
+        // 3) Démo : clip d'exemple
         const c = await save({
           resultUrl: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
         });
