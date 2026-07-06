@@ -36,12 +36,38 @@ model User {
   lastActiveDate           String? // dernier jour actif (AAAA-MM-JJ, UTC)
   lastStreakRewardMilestone Int   @default(0) // plus haut palier de série récompensé
 
+  // Crédits IA Montageiv (allocation mensuelle selon le plan)
+  creditsUsed        Int      @default(0)
+  creditsPeriodStart DateTime @default(now())
+
   scripts           Script[]
   avatarJobs        AvatarJob[]
   resets            PasswordReset[]
   referralsMade     Referral[] @relation("Referrer")
   referralReceived  Referral?  @relation("Referee")
   activityDays      ActivityDay[]
+  creations         Creation[]
+}
+
+// Une création Montageiv IA (tous modules : image, vidéo, musique, voix,
+// avatar, rédacteur). Historique partagé, favoris, corbeille restaurable.
+model Creation {
+  id         String   @id @default(cuid())
+  userId     String
+  module     String // image | video | musique | voix | avatar | redacteur
+  name       String
+  prompt     String
+  params     String? // JSON des paramètres de génération
+  status     String   @default("done") // processing | done | error
+  resultUrl  String? // média (dataURL ou URL)
+  resultText String? // texte (module rédacteur)
+  favorite   Boolean  @default(false)
+  deleted    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, module])
 }
 
 // Un jour d'activité (pour la vue hebdomadaire de la série).
