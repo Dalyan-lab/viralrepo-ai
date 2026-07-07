@@ -132,11 +132,12 @@ export function AvatarStep({
         <UserSquare2 size={16} className="text-neon-violet" /> Avatar présentateur (lip-sync)
       </h2>
       <p className="mt-1 text-xs text-muted">
-        Transformez le script en vidéo présentée par un avatar animé (D-ID). Rendu en
-        file d'attente — continuez à créer pendant ce temps.
+        Transformez le script en vidéo présentée par un avatar animé (voix +
+        lip-sync via Replicate). Rendu en file d'attente — continuez à créer
+        pendant ce temps.
         {demoMode && (
           <span className="ml-1 font-semibold text-yellow-400">
-            Mode démo (ajoutez DID_API_KEY pour le rendu réel).
+            Mode démo (ajoutez REPLICATE_API_TOKEN — ou DID_API_KEY — pour le rendu réel).
           </span>
         )}
       </p>
@@ -183,6 +184,10 @@ export function AvatarStep({
       </div>
       <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted">
         <Bell size={12} /> Vous serez notifié dès que la vidéo est prête.
+      </p>
+      <p className="mt-1 text-[11px] text-muted">
+        💡 Pour un lip-sync réaliste, importez une <strong>vraie photo de visage</strong>
+        {" "}(les avatars emoji ci-dessus servent surtout à la démo).
       </p>
 
       {jobs.length > 0 && (

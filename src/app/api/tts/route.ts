@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { replicateConfigured, replicateTTS } from "@/lib/replicate";
 
-// Voix off IA ultra-réaliste via ElevenLabs (modèle multilingue).
-// Renvoie un MP3 prêt à être muxé dans la vidéo exportée.
-// Sans ELEVENLABS_API_KEY : { demo: true } → le client utilise la voix TTS
-// du navigateur en repli.
+// Voix off IA ultra-réaliste. Priorité à REPLICATE_API_TOKEN (minimax speech) —
+// une seule clé pour toute la plateforme — sinon ElevenLabs si sa clé est
+// présente, sinon { demo: true } → le client utilise la voix TTS du navigateur.
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,6 +27,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Texte requis." }, { status: 400 });
   }
 
+  // 1) Replicate (minimax speech) — prioritaire, une seule clé pour tout
+  if (replicateConfigured()) {
+    try {
+      const r = await replicateTTS(text, voice);
+      if (r.url) {
+        const audioRes = await fetch(r.url);
+        if (audioRes.ok) {
+          const buf = Buffer.from(await audioRes.arrayBuffer());
+          return new Response(buf, {
+            headers: {
+              "Content-Type": audioRes.headers.get("content-type") || "audio/mpeg",
+              "Cache-Control": "no-store",
+            },
+          });
+        }
+      }
+    } catch {
+      /* repli ElevenLabs / démo */
+    }
+  }
+
+  // 2) ElevenLabs (optionnel, si sa clé est fournie)
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ demo: true });
