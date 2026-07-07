@@ -5,15 +5,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Sparkles, Download, Share2, Clapperboard,
-  Save, Check, Loader2, FileText, Youtube, Twitter, Music2,
+  Save, Check, Loader2, FileText, FileDown, Youtube, Music2, Send,
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { FuturisticBackground } from "@/components/FuturisticBackground";
 import { ReelPreview } from "@/components/ReelPreview";
 import { exportReelVideo } from "@/lib/exportVideo";
+import { exportWord, exportPdf } from "@/lib/exportDoc";
 import type { TrendingRepo } from "@/lib/github";
 import { DEMO_REPOS } from "@/lib/github";
 
@@ -27,18 +29,22 @@ const PLATFORMS = [
 type PlatformId = (typeof PLATFORMS)[number]["id"];
 
 export default function StudioPage() {
+  const router = useRouter();
   const [repo, setRepo] = useState<TrendingRepo>(DEMO_REPOS[0]);
   const [platform, setPlatform] = useState<PlatformId>("tiktok");
   const [script, setScript] = useState("");
   const [generating, setGenerating] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [sentToProd, setSentToProd] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [restored, setRestored] = useState(false);
 
   // Export vidéo
   const [exporting, setExporting] = useState(false);
   const [exportPct, setExportPct] = useState(0);
   const [exportLabel, setExportLabel] = useState("");
 
+  // Restaure le repo + le dernier script (persistés localement) au montage.
   useEffect(() => {
     const stored = sessionStorage.getItem("vr-selected-repo");
     if (stored) {
@@ -46,7 +52,22 @@ export default function StudioPage() {
         setRepo(JSON.parse(stored));
       } catch {}
     }
+    const savedScript = localStorage.getItem("vr-studio-script");
+    if (savedScript) setScript(savedScript);
+    const savedPlatform = localStorage.getItem("vr-studio-platform") as PlatformId | null;
+    if (savedPlatform) setPlatform(savedPlatform);
+    setRestored(true);
   }, []);
+
+  // Persiste le script et la plateforme pour ne rien perdre en changeant de section.
+  useEffect(() => {
+    if (!restored) return;
+    localStorage.setItem("vr-studio-script", script);
+  }, [script, restored]);
+  useEffect(() => {
+    if (!restored) return;
+    localStorage.setItem("vr-studio-platform", platform);
+  }, [platform, restored]);
 
   const lines = useMemo(
     () =>
@@ -126,23 +147,18 @@ export default function StudioPage() {
     }
   };
 
-  // --- Partage ---
-  const shareText = `🔥 Le repo ${repo.fullName} explose sur GitHub (+${repo.velocity} ⭐/jour) ! Script généré avec ViralRepo.AI ⚡ ${repo.url}`;
-  const shareX = () =>
-    window.open(
-      `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`,
-      "_blank"
-    );
-  const shareTikTok = () => window.open("https://www.tiktok.com/upload", "_blank");
-  const shareYouTube = () =>
-    window.open("https://studio.youtube.com/channel/upload", "_blank");
-  const downloadTxt = () => {
-    const blob = new Blob([script], { type: "text/plain;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `script-${repo.name}-${platform}.txt`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  // --- Export document (Word / PDF) ---
+  const docTitle = `Script ${platform} — ${repo.fullName}`;
+  const docName = `script-${repo.name}-${platform}`;
+  const saveWord = () => exportWord(docName, docTitle, script);
+  const savePdf = () => exportPdf(docTitle, script);
+
+  // --- Envoyer le script vers la Production (préremplit « Idée brute ») ---
+  const sendToProduction = () => {
+    if (!script.trim()) return;
+    sessionStorage.setItem("vr-production-idea", script);
+    setSentToProd(true);
+    setTimeout(() => router.push("/production"), 300);
   };
 
   return (
@@ -240,34 +256,33 @@ export default function StudioPage() {
                   {saved ? "Sauvegardé !" : "Sauvegarder"}
                 </button>
                 <button
-                  onClick={downloadTxt}
+                  onClick={saveWord}
                   disabled={!script}
                   className="glass flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium hover:scale-[1.02] disabled:opacity-50"
                 >
-                  <FileText size={15} /> Export .txt
+                  <FileText size={15} /> Word
                 </button>
                 <button
-                  onClick={shareX}
+                  onClick={savePdf}
                   disabled={!script}
                   className="glass flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium hover:scale-[1.02] disabled:opacity-50"
                 >
-                  <Twitter size={15} /> X
+                  <FileDown size={15} /> PDF
                 </button>
                 <button
-                  onClick={shareTikTok}
+                  onClick={sendToProduction}
                   disabled={!script}
-                  className="glass flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium hover:scale-[1.02] disabled:opacity-50"
+                  className="btn-neon flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold hover:scale-[1.02] disabled:opacity-50"
                 >
-                  <Music2 size={15} /> TikTok
-                </button>
-                <button
-                  onClick={shareYouTube}
-                  disabled={!script}
-                  className="glass flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium hover:scale-[1.02] disabled:opacity-50"
-                >
-                  <Youtube size={15} /> YouTube
+                  {sentToProd ? <Check size={15} /> : <Send size={15} />}
+                  {sentToProd ? "Envoi…" : "Utiliser dans Production"}
                 </button>
               </div>
+              <p className="mt-2 text-[11px] text-muted">
+                💾 Votre script est conservé automatiquement même si vous changez de section.
+                « Utiliser dans Production » le copie comme <strong>Idée brute</strong> du
+                Script de production vidéo.
+              </p>
             </div>
 
           </div>
