@@ -1,5 +1,8 @@
 import { prisma } from "./db";
-import { replicateConfigured, replicateRun, urlToDataUrl, MODELS } from "./replicate";
+import {
+  replicateConfigured, replicateRun, urlToDataUrl, MODELS,
+  imageModelById, buildImageInput,
+} from "./replicate";
 
 // Moteur Montageiv IA : crédits partagés + générateurs des modules.
 // Chaque module réutilise les intégrations existantes (Gemini, ElevenLabs,
@@ -67,18 +70,20 @@ export async function consumeCredits(userId: string, cost: number): Promise<stri
 
 export async function generateImage(
   prompt: string,
-  params: { ratio?: string; negative?: string; quality?: string }
+  params: { ratio?: string; negative?: string; quality?: string; model?: string; reference?: string }
 ): Promise<{ url: string; demo: boolean }> {
-  // 1) Replicate FLUX (prioritaire : meilleur rapport qualité/prix)
+  // 1) Replicate — le modèle choisi dans « Modèle IA » (Nano Banana, Seedream,
+  //    FLUX, Imagen, Ideogram, Recraft…). Chaque famille a son schéma d'entrée.
   if (replicateConfigured()) {
     try {
-      const r = await replicateRun(MODELS.image(), {
-        prompt: `${prompt}${params.negative ? ` (avoid: ${params.negative})` : ""}`,
-        aspect_ratio: params.ratio === "1:1" ? "1:1" : params.ratio === "9:16" ? "9:16" : "16:9",
-        num_outputs: 1,
-        output_format: "png",
-        go_fast: params.quality !== "ultra",
+      const model = imageModelById(params.model);
+      const input = buildImageInput(model, {
+        prompt,
+        ratio: params.ratio,
+        negative: params.negative,
+        reference: params.reference,
       });
+      const r = await replicateRun(model.slug, input);
       if (r.url) {
         const data = await urlToDataUrl(r.url);
         return { url: data || r.url, demo: false };
