@@ -89,7 +89,73 @@ export const MODELS = {
   image: () => process.env.REPLICATE_IMAGE_MODEL || "black-forest-labs/flux-schnell",
   music: () => process.env.REPLICATE_MUSIC_MODEL || "meta/musicgen",
   video: () => process.env.REPLICATE_VIDEO_MODEL || "minimax/video-01",
+  tts: () => process.env.REPLICATE_TTS_MODEL || "minimax/speech-02-hd",
+  lipsync: () => process.env.REPLICATE_LIPSYNC_MODEL || "cjwbw/sadtalker",
 };
+
+// ---------- Voix off (TTS) via Replicate — remplace ElevenLabs ----------
+// Une seule clé (REPLICATE_API_TOKEN) suffit. Voix préréglées minimax.
+export const TTS_VOICES: Record<string, string> = {
+  charlotte: "Calm_Woman",
+  antoni: "Deep_Voice_Man",
+  rachel: "Friendly_Person",
+};
+
+/** Génère une voix off (minimax speech). Retourne l'URL de l'audio. */
+export async function replicateTTS(
+  text: string,
+  voice?: string
+): Promise<{ url: string | null }> {
+  const voice_id = TTS_VOICES[voice ?? ""] || "Calm_Woman";
+  const r = await replicateRun(
+    MODELS.tts(),
+    {
+      text: text.replace(/\s+/g, " ").trim().slice(0, 2500),
+      voice_id,
+      language_boost: "French",
+      emotion: "neutral",
+      speed: 1,
+    },
+    60
+  );
+  // Si pas encore prêt après l'attente, on sonde encore quelques fois.
+  if (!r.url && r.id) {
+    for (let i = 0; i < 8; i++) {
+      await new Promise((res) => setTimeout(res, 2500));
+      const st = await replicateStatus(r.id);
+      if (st.status === "succeeded" && st.url) return { url: st.url };
+      if (st.status === "failed" || st.status === "canceled") return { url: null };
+    }
+  }
+  return { url: r.url };
+}
+
+// ---------- Lip-sync / avatar parlant via Replicate — remplace D-ID ----------
+// SadTalker (image + audio → tête parlante). Modèle communautaire : il faut
+// résoudre la version puis créer la prédiction sur /predictions.
+
+/** Résout la dernière version d'un modèle (nécessaire pour les modèles communautaires). */
+export async function replicateLatestVersion(model: string): Promise<string | null> {
+  const res = await fetch(`${API}/models/${model}`, { headers: headers() });
+  if (!res.ok) return null;
+  const j = await res.json();
+  return j.latest_version?.id ?? null;
+}
+
+/** Crée une prédiction par version (POST /predictions) pour les modèles communautaires. */
+export async function replicateCreateVersion(
+  version: string,
+  input: any
+): Promise<{ id: string; status: string; url: string | null }> {
+  const res = await fetch(`${API}/predictions`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ version, input }),
+  });
+  if (!res.ok) throw new Error(`Replicate ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const p = await res.json();
+  return { id: p.id, status: p.status, url: firstOutputUrl(p.output) };
+}
 
 // ---------- Catalogue de générateurs d'images (agrégés via Replicate) ----------
 // Modèles réellement hébergés par Replicate (vérifiés). Chaque « family »

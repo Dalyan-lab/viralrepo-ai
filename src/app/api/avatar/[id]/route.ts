@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { replicateStatus } from "@/lib/replicate";
 
 export async function GET(
   _req: NextRequest,
@@ -13,6 +14,30 @@ export async function GET(
     where: { id: params.id, userId: session.userId },
   });
   if (!job) return NextResponse.json({ error: "Job introuvable." }, { status: 404 });
+
+  // Rendu Replicate (SadTalker) en cours → on sonde la prédiction.
+  if (job.status === "processing" && job.didTalkId?.startsWith("rpl:")) {
+    try {
+      const st = await replicateStatus(job.didTalkId.slice(4));
+      if (st.status === "succeeded" && st.url) {
+        const updated = await prisma.avatarJob.update({
+          where: { id: job.id },
+          data: { status: "done", resultUrl: st.url },
+        });
+        return NextResponse.json({ job: updated });
+      }
+      if (st.status === "failed" || st.status === "canceled") {
+        const updated = await prisma.avatarJob.update({
+          where: { id: job.id },
+          data: { status: "error", error: "Rendu Replicate échoué." },
+        });
+        return NextResponse.json({ job: updated });
+      }
+    } catch {
+      /* réseau indisponible — on renvoie l'état courant */
+    }
+    return NextResponse.json({ job });
+  }
 
   // Si D-ID est configuré et que le webhook n'est pas joignable (dev local),
   // on interroge aussi l'API en direct comme filet de sécurité.
