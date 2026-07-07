@@ -7,12 +7,12 @@
 // Étape 3 : Montage & export MP4 (Ken Burns + sous-titres dynamiques)
 // Étape 4 : Déclinaison cross-canal (hooks viraux → Shorts verticaux)
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Clapperboard, Sparkles, Loader2, Mic, Square, Upload, Download,
   Volume2, ImageIcon, Scissors, Check, ChevronRight, Youtube, Smartphone,
-  RefreshCw, Film, Trash2, UserSquare2,
+  RefreshCw, Film, Trash2, UserSquare2, Twitter, Music2, Share2,
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { FuturisticBackground } from "@/components/FuturisticBackground";
@@ -124,6 +124,23 @@ export default function ProductionPage() {
     setStep(n);
     setMaxStep((m) => Math.max(m, n));
   };
+
+  // Script envoyé depuis le Studio → préremplit « Idée brute ».
+  useEffect(() => {
+    const fromStudio = sessionStorage.getItem("vr-production-idea");
+    if (fromStudio) {
+      setIdea(fromStudio);
+      sessionStorage.removeItem("vr-production-idea");
+    }
+  }, []);
+
+  // Partage / publication (déplacé depuis le Studio)
+  const shareText =
+    "🎬 Nouvelle vidéo créée avec ViralRepo.AI ⚡ Je détecte les repos IA qui explosent et les transforme en vidéos virales.";
+  const shareX = () =>
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, "_blank");
+  const shareTikTok = () => window.open("https://www.tiktok.com/upload", "_blank");
+  const shareYouTube = () => window.open("https://studio.youtube.com/channel/upload", "_blank");
 
   const totalDuration = useMemo(
     () => Math.round(scenes.reduce((a, s) => a + sceneDuration(s.audio), 0)),
@@ -905,6 +922,33 @@ export default function ProductionPage() {
                   <Scissors size={15} /> Décliner en Shorts <ChevronRight size={15} />
                 </button>
               )}
+
+              {/* Partage / publication (déplacé depuis le Studio) */}
+              <div className="mt-5 border-t border-[var(--border)] pt-4">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted">
+                  <Share2 size={13} className="text-neon-cyan" /> Publier / partager
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={shareX}
+                    className="glass flex items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium hover:scale-[1.02]"
+                  >
+                    <Twitter size={14} /> X
+                  </button>
+                  <button
+                    onClick={shareTikTok}
+                    className="glass flex items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium hover:scale-[1.02]"
+                  >
+                    <Music2 size={14} /> TikTok
+                  </button>
+                  <button
+                    onClick={shareYouTube}
+                    className="glass flex items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium hover:scale-[1.02]"
+                  >
+                    <Youtube size={14} /> YouTube
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
