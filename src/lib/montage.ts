@@ -17,8 +17,23 @@ export type MontageOptions = {
   vertical: boolean; // true = 720x1280 (Short), false = 1280x720 (YouTube)
   audioBlob?: Blob | null;
   overlayText?: string; // texte à l'écran permanent (hooks des Shorts)
+  presenterVideoUrl?: string | null; // avatar présentateur en incrustation (PiP)
   onProgress?: (pct: number, label: string) => void;
 };
+
+// Trace un rectangle arrondi (incrustation avatar)
+function roundRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
 
 export function sceneDuration(caption: string): number {
   return Math.max(2.4, caption.split(/\s+/).filter(Boolean).length * 0.38);
@@ -121,6 +136,11 @@ export async function exportMontage(
   }
   let activeVideo = -1; // scène dont le clip est en lecture
 
+  // Avatar présentateur (incrustation PiP) — joué en boucle, muet (l'audio
+  // vient de la voix off, même script → synchronisé).
+  const presenter = opts.presenterVideoUrl ? await loadVideo(opts.presenterVideoUrl) : null;
+  let presenterStarted = false;
+
   const durations = scenes.map((s) => sceneDuration(s.caption));
   const total = durations.reduce((a, b) => a + b, 0) + 0.6;
 
@@ -208,6 +228,38 @@ export async function exportMontage(
     if (local < 0.12) {
       ctx.fillStyle = `rgba(0,0,0,${1 - local / 0.12})`;
       ctx.fillRect(0, 0, W, H);
+    }
+
+    // avatar présentateur en incrustation (coin haut-droit)
+    if (presenter) {
+      if (!presenterStarted) {
+        presenter.play().catch(() => {});
+        presenterStarted = true;
+      }
+      const margin = Math.round(W * 0.03);
+      const pw = Math.round(W * (vertical ? 0.34 : 0.22));
+      const vwv = presenter.videoWidth || 1;
+      const vhv = presenter.videoHeight || 1;
+      const ph = Math.round(pw * (vhv / vwv));
+      const px = W - pw - margin;
+      const py = margin;
+      ctx.save();
+      roundRectPath(ctx, px, py, pw, ph, 18);
+      ctx.shadowColor = "rgba(0,0,0,.55)";
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = "#000";
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.clip();
+      const pscale = Math.max(pw / vwv, ph / vhv);
+      const pdw = vwv * pscale;
+      const pdh = vhv * pscale;
+      ctx.drawImage(presenter, px + (pw - pdw) / 2, py + (ph - pdh) / 2, pdw, pdh);
+      ctx.restore();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(167,139,250,.9)";
+      roundRectPath(ctx, px, py, pw, ph, 18);
+      ctx.stroke();
     }
 
     // dégradé bas pour la lisibilité des sous-titres
