@@ -1,7 +1,7 @@
 import { prisma } from "./db";
 import {
   replicateConfigured, replicateRun, urlToDataUrl, MODELS,
-  imageModelById, buildImageInput,
+  imageModelById, buildImageInput, replicateTTS,
 } from "./replicate";
 
 // Moteur Montageiv IA : crédits partagés + générateurs des modules.
@@ -204,6 +204,20 @@ export async function generateVoice(
   text: string,
   voice: string
 ): Promise<{ url: string | null; demo: boolean }> {
+  // 1) Replicate (minimax speech) — une seule clé pour toute la plateforme
+  if (replicateConfigured()) {
+    try {
+      const r = await replicateTTS(text, voice);
+      if (r.url) {
+        const data = await urlToDataUrl(r.url);
+        if (data) return { url: data, demo: false };
+      }
+    } catch {
+      /* repli ElevenLabs / démo */
+    }
+  }
+
+  // 2) ElevenLabs (optionnel, si sa clé est fournie)
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) return { url: null, demo: true };
   try {
