@@ -6,6 +6,7 @@ import {
   generateImage, generateText, generateVoice, generateMusic,
 } from "@/lib/montageiv";
 import { replicateConfigured, replicateCreate, MODELS } from "@/lib/replicate";
+import { setupReplicateAvatarJob } from "@/lib/avatar";
 
 // Génération Montageiv IA — un endpoint unique, comportement par module.
 // Consomme les crédits, enregistre la création dans l'historique partagé.
@@ -146,7 +147,7 @@ export async function POST(req: NextRequest) {
       }
 
       case "avatar": {
-        // Réutilise la file D-ID existante : job créé, le client sonde /api/avatar/[id]
+        // Job d'avatar : le client sonde /api/avatar/[id] jusqu'au rendu final.
         const job = await prisma.avatarJob.create({
           data: {
             userId: session.userId,
@@ -156,9 +157,20 @@ export async function POST(req: NextRequest) {
           },
         });
         const c = await save({ status: "processing" });
-        // Déclenchement asynchrone du rendu via la route avatar existante
-        processAvatarJob(job.id).catch(() => {});
-        return NextResponse.json({ creations: [c], jobId: job.id, demo: !process.env.DID_API_KEY, cost });
+        if (replicateConfigured()) {
+          // Replicate (voix minimax → SadTalker) : mise en place synchrone
+          // (fiabilité serverless), puis le client sonde la complétion.
+          await setupReplicateAvatarJob(job.id, params.voice);
+        } else {
+          // Repli D-ID / démo (asynchrone)
+          processAvatarJob(job.id).catch(() => {});
+        }
+        return NextResponse.json({
+          creations: [c],
+          jobId: job.id,
+          demo: !replicateConfigured() && !process.env.DID_API_KEY,
+          cost,
+        });
       }
     }
   } catch (e: any) {
