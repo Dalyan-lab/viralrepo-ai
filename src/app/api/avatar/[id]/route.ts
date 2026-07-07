@@ -53,3 +53,20 @@ export async function GET(
 
   return NextResponse.json({ job });
 }
+
+// Supprime un rendu d'avatar (raté / à refaire).
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+
+  const job = await prisma.avatarJob.findFirst({
+    where: { id: params.id, userId: session.userId },
+  });
+  if (!job) return NextResponse.json({ error: "Job introuvable." }, { status: 404 });
+
+  await prisma.avatarJob.delete({ where: { id: job.id } });
+  return NextResponse.json({ ok: true });
+}

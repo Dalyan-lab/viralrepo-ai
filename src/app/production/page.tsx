@@ -12,7 +12,7 @@ import { motion } from "framer-motion";
 import {
   Clapperboard, Sparkles, Loader2, Mic, Square, Upload, Download,
   Volume2, ImageIcon, Scissors, Check, ChevronRight, Youtube, Smartphone,
-  RefreshCw, Film,
+  RefreshCw, Film, Trash2, UserSquare2,
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { FuturisticBackground } from "@/components/FuturisticBackground";
@@ -101,11 +101,16 @@ export default function ProductionPage() {
   const [videoMsg, setVideoMsg] = useState("");
   const recorderRef = useRef<MediaRecorder | null>(null);
 
+  // Avatar présentateur (remonté depuis AvatarStep) — incrustation optionnelle
+  const [avatarVideoUrl, setAvatarVideoUrl] = useState<string | null>(null);
+
   // Étape 3
   const [exporting, setExporting] = useState(false);
   const [exportPct, setExportPct] = useState(0);
   const [exportLabel, setExportLabel] = useState("");
   const [exportedOnce, setExportedOnce] = useState(false);
+  const [useVoiceover, setUseVoiceover] = useState(true); // muxer la voix off
+  const [usePresenter, setUsePresenter] = useState(true); // incruster l'avatar
 
   // Étape 4
   const [hooks, setHooks] = useState<ViralHook[]>([]);
@@ -345,6 +350,14 @@ export default function ProductionPage() {
     setAudioUrl(URL.createObjectURL(f));
   };
 
+  // Supprime la voix off (prise ratée) pour en refaire une autre.
+  const clearVoice = () => {
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioBlob(null);
+    setAudioUrl(null);
+    setVoiceNote("");
+  };
+
   // ---- Étape 3 : montage ----
   const exportVideo = async () => {
     setExporting(true);
@@ -357,7 +370,8 @@ export default function ProductionPage() {
           videoUrl: s.videoUrl,
         })),
         vertical,
-        audioBlob,
+        audioBlob: useVoiceover ? audioBlob : null,
+        presenterVideoUrl: usePresenter ? avatarVideoUrl : null,
         onProgress: (pct, label) => {
           setExportPct(pct);
           setExportLabel(label);
@@ -767,12 +781,26 @@ export default function ProductionPage() {
                   <Upload size={15} /> Importer un audio
                   <input type="file" accept="audio/*" onChange={onImportAudio} className="hidden" />
                 </label>
-                {audioUrl && <audio controls src={audioUrl} className="h-9 max-w-[220px]" />}
+                {audioUrl && (
+                  <div className="flex items-center gap-2">
+                    <audio controls src={audioUrl} className="h-9 max-w-[220px]" />
+                    <button
+                      onClick={clearVoice}
+                      title="Supprimer / refaire la voix off"
+                      className="glass grid h-9 w-9 place-items-center rounded-xl text-muted transition hover:bg-red-500/15 hover:text-red-400"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Avatar présentateur (lip-sync) */}
-            <AvatarStep scriptText={scenes.map((s) => s.audio).join(". ")} />
+            <AvatarStep
+              scriptText={scenes.map((s) => s.audio).join(". ")}
+              onReadyVideo={setAvatarVideoUrl}
+            />
           </div>
         )}
 
@@ -784,7 +812,8 @@ export default function ProductionPage() {
               <p className="mt-1 text-xs text-muted">
                 Assemblage des {scenes.length} scènes : effet Ken Burns sur chaque
                 image, sous-titres dynamiques synchronisés (colonne AUDIO), fondus
-                enchaînés, {audioBlob ? "votre voix off muxée" : "vidéo muette (ajoutez une voix à l'étape 2)"}.
+                enchaînés, {useVoiceover && audioBlob ? "votre voix off muxée" : "vidéo muette (ajoutez une voix à l'étape 2)"}
+                {usePresenter && avatarVideoUrl ? ", avatar présentateur incrusté" : ""}.
               </p>
 
               <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-6">
@@ -814,6 +843,37 @@ export default function ProductionPage() {
 
             <div className="glass neon-border h-fit rounded-2xl p-6">
               <h2 className="text-center font-display font-semibold">🎬 Export final</h2>
+
+              {/* Éléments optionnels à intégrer à la vidéo */}
+              <div className="mt-4 space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-muted">À intégrer (optionnel)</p>
+                <label className={`flex items-center justify-between gap-2 rounded-xl glass px-3 py-2.5 text-sm ${!audioBlob ? "opacity-50" : ""}`}>
+                  <span className="flex items-center gap-2"><Volume2 size={14} /> Voix off</span>
+                  <input
+                    type="checkbox"
+                    checked={useVoiceover && !!audioBlob}
+                    disabled={!audioBlob}
+                    onChange={(e) => setUseVoiceover(e.target.checked)}
+                    className="h-4 w-4 accent-violet-500"
+                  />
+                </label>
+                <label className={`flex items-center justify-between gap-2 rounded-xl glass px-3 py-2.5 text-sm ${!avatarVideoUrl ? "opacity-50" : ""}`}>
+                  <span className="flex items-center gap-2"><UserSquare2 size={14} /> Avatar présentateur (incrustation)</span>
+                  <input
+                    type="checkbox"
+                    checked={usePresenter && !!avatarVideoUrl}
+                    disabled={!avatarVideoUrl}
+                    onChange={(e) => setUsePresenter(e.target.checked)}
+                    className="h-4 w-4 accent-violet-500"
+                  />
+                </label>
+                <p className="text-[11px] text-muted">
+                  {avatarVideoUrl
+                    ? "Cochez ce que vous voulez intégrer à la vidéo finale."
+                    : "Créez un avatar parlant à l'étape 2 pour pouvoir l'incruster ici."}
+                </p>
+              </div>
+
               <button
                 onClick={exportVideo}
                 disabled={exporting}

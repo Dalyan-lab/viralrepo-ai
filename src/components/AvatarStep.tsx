@@ -5,7 +5,7 @@
 // notification — l'utilisateur n'est jamais bloqué.
 
 import { useEffect, useRef, useState } from "react";
-import { UserSquare2, Loader2, CheckCircle2, XCircle, Clock, Bell, Upload } from "lucide-react";
+import { UserSquare2, Loader2, CheckCircle2, XCircle, Clock, Bell, Upload, Trash2 } from "lucide-react";
 
 type Job = {
   id: string;
@@ -34,12 +34,19 @@ const STATUS_UI: Record<Job["status"], { label: string; cls: string; icon: any }
   error: { label: "Erreur", cls: "text-red-400", icon: XCircle },
 };
 
-export function AvatarStep({ scriptText }: { scriptText: string }) {
+export function AvatarStep({
+  scriptText,
+  onReadyVideo,
+}: {
+  scriptText: string;
+  onReadyVideo?: (url: string | null) => void;
+}) {
   const [avatarUrl, setAvatarUrl] = useState(PRESETS[0].url);
   const [customPreview, setCustomPreview] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [demoMode, setDemoMode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const notified = useRef<Set<string>>(new Set());
 
   const load = async () => {
@@ -71,6 +78,23 @@ export function AvatarStep({ scriptText }: { scriptText: string }) {
     const t = setInterval(load, 4000);
     return () => clearInterval(t);
   }, [jobs]);
+
+  // Remonte la dernière vidéo d'avatar prête vers la Production (incrustation).
+  useEffect(() => {
+    const ready = jobs.find((j) => j.status === "done" && j.resultUrl);
+    onReadyVideo?.(ready?.resultUrl ?? null);
+  }, [jobs, onReadyVideo]);
+
+  const remove = async (id: string) => {
+    setDeleting(id);
+    try {
+      await fetch(`/api/avatar/${id}`, { method: "DELETE" });
+      notified.current.delete(id);
+      setJobs((prev) => prev.filter((j) => j.id !== id));
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const submit = async () => {
     if (!scriptText.trim()) return;
@@ -172,12 +196,27 @@ export function AvatarStep({ scriptText }: { scriptText: string }) {
                     <S.icon size={13} className={j.status === "processing" ? "animate-spin" : ""} />
                     {S.label}
                   </span>
-                  <span className="text-[10px] text-muted">
-                    {new Date(j.createdAt).toLocaleTimeString("fr-FR")}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted">
+                      {new Date(j.createdAt).toLocaleTimeString("fr-FR")}
+                    </span>
+                    <button
+                      onClick={() => remove(j.id)}
+                      disabled={deleting === j.id || j.status === "processing"}
+                      title="Supprimer ce rendu"
+                      className="grid h-6 w-6 place-items-center rounded-md text-muted transition hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40"
+                    >
+                      {deleting === j.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                    </button>
+                  </div>
                 </div>
                 {j.status === "done" && j.resultUrl && (
                   <video src={j.resultUrl} controls className="mt-2 w-full max-w-xs rounded-lg" />
+                )}
+                {j.status === "done" && (
+                  <p className="mt-1.5 text-[11px] text-emerald-400/80">
+                    Disponible en incrustation dans l'étape « Montage &amp; Export ».
+                  </p>
                 )}
                 {j.status === "error" && <p className="mt-1 text-xs text-red-400">{j.error}</p>}
               </li>
