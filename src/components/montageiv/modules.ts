@@ -43,10 +43,19 @@ export const MODULES: ModuleDef[] = [
     main: [
       { kind: "image", key: "reference", label: "Image de référence" },
       {
-        kind: "select", key: "model", label: "Modèle IA", def: "gemini-2.5-flash-image",
+        kind: "select", key: "model", label: "Modèle IA", def: "nano-banana-pro",
         options: [
-          { v: "gemini-2.5-flash-image", l: "Gemini Flash Image (rapide)" },
-          { v: "gemini-3-pro-image", l: "Gemini 3 Pro Image (qualité)" },
+          { v: "nano-banana-pro", l: "Nano Banana Pro" },
+          { v: "nano-banana", l: "Nano Banana" },
+          { v: "seedream-4", l: "Seedream 4" },
+          { v: "imagen-4", l: "Imagen 4" },
+          { v: "flux-1.1-pro", l: "FLUX 1.1 Pro" },
+          { v: "flux-dev", l: "FLUX Dev" },
+          { v: "flux-schnell", l: "FLUX Schnell (rapide)" },
+          { v: "ideogram-v3-turbo", l: "Ideogram v3 Turbo (texte net)" },
+          { v: "recraft-v3", l: "Recraft v3 (design)" },
+          { v: "sd-3.5", l: "Stable Diffusion 3.5" },
+          { v: "qwen-image", l: "Qwen Image" },
         ],
       },
       {
